@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	cloner "github.com/MindHunter86/NexusCloner/cloner"
 	"github.com/rs/zerolog"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -66,7 +67,46 @@ func main() {
 			Name: "http-client-insecure",
 		},
 
+		// Queue settings
+		//
+
 		// Application options
+		cli.StringFlag{
+			Name:  "tmpdir",
+			Usage: "temporary directory for artefacts synchronization",
+		},
+		cli.StringFlag{
+			Name:  "srcRepoName",
+			Usage: "Source repository name",
+		},
+		cli.StringFlag{
+			Name:  "srcRepoUrl",
+			Usage: "Source repository url",
+		},
+		cli.StringFlag{
+			Name:  "srcRepoUsername",
+			Usage: "Credentials for source repository access",
+		},
+		cli.StringFlag{
+			Name:  "srcRepoPassword",
+			Usage: "Credentials for source repository access",
+		},
+		cli.StringFlag{
+			Name:  "dstRepoName",
+			Usage: "Destination repository name",
+		},
+		cli.StringFlag{
+			Name:  "dstRepoUrl",
+			Usage: "Destination repository url",
+		},
+		cli.StringFlag{
+			Name:  "dstRepoUsername",
+			Usage: "Credentials for destination repository access",
+		},
+		cli.StringFlag{
+			Name:  "dstRepoPassword",
+			Usage: "Credentials for destination repository access",
+		},
 	}
 	app.Action = func(c *cli.Context) (e error) {
 		log.Debug().Msg("prgm started")
@@ -117,8 +157,7 @@ func main() {
 		}
 
 		// Application starts here:
-		// return commands.NewCommands(&log).Bootstrap(c)
-		return nil
+		return cloner.NewCloner(&log).Bootstrap(c)
 	}
 
 	sort.Sort(cli.FlagsByName(app.Flags))
