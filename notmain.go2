@@ -1,0 +1,254 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"github.com/cavaliercoder/grab"
+	"gopkg.in/yaml.v2"
+	"io"
+	"io/ioutil"
+	"log"
+	"mime/multipart"
+	"net/http"
+	"os"
+	"strings"
+)
+
+var (
+	conf = flag.String("conf", "config.yaml", "The path to the config file.")
+)
+
+type NexusAssetsCollection struct {
+	Items []NexusAsset `json:"items"`
+	Token string       `json:"continuationToken"`
+}
+
+type NexusAsset struct {
+	DownloadURL string `json:"downloadUrl"`
+	Path        string `json:"path"`
+	ID          string `json:"id"`
+	Repository  string `json:"repository"`
+	Format      string `json:"format"`
+	Name        string `json:"name"`
+	Checksum    struct {
+		Sha1   string `json:"sha1"`
+		Sha512 string `json:"sha512"`
+		Sha256 string `json:"sha256"`
+		Md5    string `json:"md5"`
+	} `json:"checksum"`
+	Maven2 struct {
+		Extension  string `json:"extension"`
+		GroupId    string `json:"groupId"`
+		ArtifactId string `json:"artifactId"`
+		Version    string `json:"version"`
+	}
+}
+
+type Conf struct {
+	WorkDir string `yaml:"work_dir"`
+	Repo1   string `yaml:"repo1"`
+	Url1    string `yaml:"url1"`
+	User1   string `yaml:"user1"`
+	Pass1   string `yaml:"pass1"`
+	Repo2   string `yaml:"repo2"`
+	Url2    string `yaml:"url2"`
+	User2   string `yaml:"user2"`
+	Pass2   string `yaml:"pass2"`
+}
+
+func (c *Conf) GetConf(configFile string) *Conf {
+
+	yamlFile, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		log.Printf("yamlFile.Get err   #%v ", err)
+	}
+	err = yaml.Unmarshal(yamlFile, c)
+	if err != nil {
+		log.Println("Unmarshal: %v", err)
+	}
+
+	return c
+}
+
+func downloadAssets(c Conf, assets *NexusAssetsCollection) {
+
+	for index, a := range assets.Items {
+		resp, err := grab.Get(c.WorkDir, a.DownloadURL)
+		if err != nil {
+			log.Println(err.Error())
+		}
+
+		//assets.Items[index].Name = resp.Filename
+		assets.Items[index].Name = strings.TrimPrefix(resp.Filename, "assets\\")
+	}
+
+}
+
+func GetAssets(c Conf, token string) NexusAssetsCollection {
+	url := c.Url1 + "/service/rest/v1/assets?repository=" + c.Repo1
+	if token != "" {
+		url += "&continuationToken=" + token
+	}
+	spaceClient := http.Client{}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		log.Println(err)
+	}
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.SetBasicAuth(c.User1, c.Pass1)
+
+	res, getErr := spaceClient.Do(req)
+	if getErr != nil {
+		log.Println(getErr)
+	}
+
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
+
+	body, readErr := ioutil.ReadAll(res.Body)
+	if readErr != nil {
+		log.Fatal(readErr)
+	}
+	//Convert the body to type string
+	//sb := string(body)
+	//log.Printf(sb)
+	assets := NexusAssetsCollection{}
+	jsonErr := json.Unmarshal(body, &assets)
+	if jsonErr != nil {
+		log.Fatal(jsonErr)
+	}
+	if assets.Token != "" {
+		a2 := GetAssets(c, assets.Token)
+		assets.Items = append(assets.Items, a2.Items...)
+	}
+	return assets
+
+}
+func uploadAssets(c Conf, assets *NexusAssetsCollection) {
+	for _, a := range assets.Items {
+		log.Println("uploading ...", a.ID)
+		uploadRawToNexus(c, a)
+	}
+}
+
+func main() {
+	var c Conf
+	c.GetConf(*conf)
+	if c.Url1 == "" {
+		c.Url1 = "http://localhost:9090/nexus"
+	}
+	if c.Url2 == "" {
+		c.Url2 = "http://localhost:8081/nexus"
+	}
+	if c.Repo1 == "" {
+		c.Repo1 = "packages"
+	}
+	if c.Repo2 == "" {
+		c.Repo2 = c.Repo1
+	}
+	if c.User1 == "" {
+		c.User1 = "admin"
+	}
+	if c.User2 == "" {
+		c.User2 = c.User1
+	}
+
+	c.WorkDir = "./assets"
+	os.Mkdir("assets/", 0755)
+	assets := GetAssets(c, "")
+	downloadAssets(c, &assets)
+	uploadAssets(c, &assets)
+
+}
+
+func uploadRawToNexus(c Conf, a NexusAsset) {
+	// https://stackoverflow.com/questions/20205796/post-data-using-the-content-type-multipart-form-data
+
+	var client http.Client
+	u := fmt.Sprintf("%s/service/rest/v1/components?repository=%s", c.Url2, c.Repo2)
+	remoteURL := u
+	//prepare the reader instances to encode
+	dir := strings.TrimSuffix(a.Path, a.Name)
+	log.Println(dir)
+	log.Println(a.Maven2.Extension)
+	log.Println(a.Maven2.GroupId)
+	log.Println(a.Maven2.ArtifactId)
+	log.Println(a.Maven2.Version)
+	values := map[string]io.Reader{
+		"asset0":           mustOpen(c.WorkDir + "/" + a.Name), // lets assume its this file
+		"asset0.extension": strings.NewReader(a.Maven2.Extension),
+		"groupId":          strings.NewReader(a.Maven2.GroupId),
+		"artifactId":       strings.NewReader(a.Maven2.ArtifactId),
+		"version":          strings.NewReader(a.Maven2.Version),
+	}
+
+	err := Upload(&client, remoteURL, values, c)
+	if err != nil {
+		log.Println(err.Error())
+	}
+}
+
+func Upload(client *http.Client, url string, values map[string]io.Reader, c Conf) (err error) {
+	// Prepare a form that you will submit to that URL.
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	for key, r := range values {
+		var fw io.Writer
+		if x, ok := r.(io.Closer); ok {
+			defer x.Close()
+		}
+		// Add an image file
+		if x, ok := r.(*os.File); ok {
+			if fw, err = w.CreateFormFile(key, x.Name()); err != nil {
+				return
+			}
+		} else {
+			// Add other fields
+			if fw, err = w.CreateFormField(key); err != nil {
+				return
+			}
+		}
+		if _, err = io.Copy(fw, r); err != nil {
+			return err
+		}
+
+	}
+	// Don't forget to close the multipart writer.
+	// If you don't close it, your request will be missing the terminating boundary.
+	w.Close()
+
+	// Now that you have a form, you can submit it to your handler.
+	req, err := http.NewRequest("POST", url, &b)
+	if err != nil {
+		return
+	}
+	// Don't forget to set the content type, this will contain the boundary.
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.SetBasicAuth(c.User2, c.Pass2)
+
+	// Submit the request
+	res, err := client.Do(req)
+	if err != nil {
+		return
+	}
+
+	// Check the response
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
+		body, _ := ioutil.ReadAll(res.Body)
+		err = fmt.Errorf("bad status: %s", res.Status)
+		log.Println(string(body))
+	}
+	return
+}
+
+func mustOpen(f string) *os.File {
+	r, err := os.Open(f)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}

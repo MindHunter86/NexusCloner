@@ -1,0 +1,10 @@
+{
+  "go.lintOnSave": "off",
+  "go.vetOnSave": "off",
+  "git.enableSmartCommit": true,
+
+  "editor.autoClosingBrackets": "never",
+  "editor.minimap.enabled": false,
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true
+}

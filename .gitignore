@@ -1,3 +1,5 @@
+# .gitignore
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -12,4 +14,15 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
+
+# Binary data
+bin/
+pkg/
+
+# VISUAL STUDIO:
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
