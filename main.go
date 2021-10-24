@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	cloner "github.com/MindHunter86/NexusCloner/cloner"
+	"github.com/MindHunter86/NexusCloner/cloner"
 	"github.com/rs/zerolog"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -59,12 +59,14 @@ func main() {
 			Name:  "syslog-tag",
 			Value: "",
 		},
-		cli.IntFlag{
-			Name:  "clienttimeout, ct",
-			Value: 3,
+		cli.DurationFlag{
+			Name:  "http-client-timeout",
+			Usage: "internal HTTP client timeout (ms)",
+			Value: 1000 * time.Millisecond,
 		},
 		cli.BoolFlag{
-			Name: "http-client-insecure",
+			Name:  "http-client-insecure",
+			Usage: "disable TLS certificate verification",
 		},
 
 		// Queue settings

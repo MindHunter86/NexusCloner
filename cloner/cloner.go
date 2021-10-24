@@ -1,4 +1,4 @@
-package app
+package cloner
 
 import (
 	"github.com/rs/zerolog"
@@ -7,7 +7,11 @@ import (
 
 type Cloner struct{}
 
-var gLog *zerolog.Logger
+var (
+	gLog *zerolog.Logger
+	gCli *cli.Context
+	gApi *nexusApi
+)
 
 func NewCloner(l *zerolog.Logger) *Cloner {
 	gLog = l
@@ -15,5 +19,9 @@ func NewCloner(l *zerolog.Logger) *Cloner {
 }
 
 func (m *Cloner) Bootstrap(ctx *cli.Context) error {
-	return nil
+	gCli = ctx
+	gApi = NewNexusApi()
+
+	_, err := NewNexus().getRepositoryAssets(gCli.String("srcRepoName"))
+	return err
 }
