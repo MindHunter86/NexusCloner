@@ -11,6 +11,8 @@ import (
 
 type nexusApi struct {
 	*http.Client
+
+	username, password string
 }
 
 var (
@@ -20,7 +22,7 @@ var (
 	nxsErrRq404       = errors.New("Could not complete the request because of Nexus api respond 404 error!")
 )
 
-func NewNexusApi() *nexusApi {
+func newNexusApi(u, p string) *nexusApi {
 	return &nexusApi{
 		Client: &http.Client{
 			Timeout: gCli.Duration("http-client-timeout"),
@@ -30,6 +32,8 @@ func NewNexusApi() *nexusApi {
 				},
 			},
 		},
+		username: u,
+		password: p,
 	}
 }
 
@@ -39,8 +43,8 @@ func (m *nexusApi) getNexusRequest(url string, rspJsonSchema interface{}) (e err
 		return
 	}
 
-	if len(gCli.String("srcRepoUsername")) > 0 && len(gCli.String("srcRepoPassword")) > 0 {
-		req.SetBasicAuth(gCli.String("srcRepoUsername"), gCli.String("srcRepoPassword"))
+	if len(m.username) > 0 && len(m.password) > 0 {
+		req.SetBasicAuth(m.username, m.password)
 	}
 
 	req.Header.Set("Accept", "application/json")
