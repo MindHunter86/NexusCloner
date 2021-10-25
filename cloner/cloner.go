@@ -18,7 +18,7 @@ var (
 )
 
 var (
-	errClNoMissAssets = errors.New("There is not missing assets detected. Repository sinchronization is not needed.")
+	errClNoMissAssets = errors.New("There is no missing assets detected. Repository sinchronization is not needed.")
 )
 
 func NewCloner(l *zerolog.Logger) *Cloner {
@@ -68,6 +68,20 @@ func (m *Cloner) sync() (e error) {
 	}
 
 	// 3. download missed assets from src repository
+	if gCli.Bool("skip-download") {
+		return
+	}
+
+	if e = m.srcNexus.createTemporaryDirectory(); e != nil {
+		return
+	}
+
+	if e = m.srcNexus.downloadMissingAssets(missAssets); e != nil {
+		return
+	}
+
+	// var tmpdir string
+	// tmpdir = m.srcNexus.getTemporaryDirectory()
 
 	return
 }
@@ -102,8 +116,6 @@ func (m *Cloner) getMissingAssets(srcACollection, dstAColltion []*NexusAsset) (m
 	gLog.Info().Msgf("There are %d missing assets in destination repository", len(missingAssets))
 	return
 }
-
-func (m *Cloner) downloadMissingAssets(assets []*NexusAsset) error { return nil }
 
 // TODO CODE
 // queue module

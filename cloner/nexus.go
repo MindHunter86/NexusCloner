@@ -8,6 +8,10 @@ import (
 	"runtime"
 )
 
+var (
+	errNxsDwnlErrs = errors.New("Download process has not successfully finished. Check logs and restart program. Also u can use --skip-download-errors flag.")
+)
+
 type nexus struct {
 	url              string
 	username         string
@@ -40,12 +44,12 @@ func (m *nexus) destruct() {
 
 func (m *nexus) getRepositoryStatus() (e error) {
 	var rrl *url.URL
-	if rrl, e = url.Parse(m.url + "/status"); e != nil {
+	if rrl, e = url.Parse(m.url + "/service/rest/v1/status"); e != nil {
 		gLog.Warn().Str("url", m.url).Err(e).Msg("Abnormal status from repository")
 		return
 	}
 
-	if e = m.api.getNexusRequest(rrl.String(), nil); e != nil {
+	if e = m.api.getNexusRequest(rrl.String(), struct{}{}); e != nil {
 		if e == nxsErrRq404 {
 			gLog.Error().Err(e).Msg("Given Nexus server is avaliable but has abnormal response code. Check it manually.")
 			return nxsErrRspUnknown
@@ -58,9 +62,12 @@ func (m *nexus) getRepositoryStatus() (e error) {
 }
 
 func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
-	if e = m.getRepositoryStatus(); e != nil {
-		return
-	}
+	// !!!
+	// !!!
+	// !!!
+	// if e = m.getRepositoryStatus(); e != nil {
+	// 	return
+	// }
 
 	var rrl *url.URL
 	if rrl, e = url.Parse(m.url + "/service/rest/v1/assets"); e != nil {
@@ -118,4 +125,36 @@ func (m *nexus) createTemporaryDirectory() (e error) {
 
 func (m *nexus) getTemporaryDirectory() string {
 	return m.tempPath
+}
+
+func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
+	var downloaded, errors int
+
+	for _, asset := range assets {
+		var file *os.File
+		if file, e = asset.getTemporaryFile(m.tempPath); e != nil {
+			gLog.Error().Err(e).Msgf("There is error while allocating temporary asset file. Asset %s will be skipped.", asset.ID)
+			errors++
+			continue
+		}
+		defer file.Close()
+
+		if e = asset.downloadRepositoryAsset(file); e != nil {
+			gLog.Error().Err(e).Msgf("There is error while downloading asset. Asset %s will be skipped.", asset.ID)
+			errors++
+			continue
+		}
+
+		downloaded++
+	}
+
+	if errors > 0 {
+		gLog.Warn().Msgf("There was %d troubles with file downloading. Check logs and try again later.", errors) // TODO retranslate
+		if !gCli.Bool("skip-download-errors") {
+			return errNxsDwnlErrs
+		}
+	}
+
+	gLog.Info().Msgf("Missing assets download has been completed. Downloaded %d files.", downloaded)
+	return nil
 }

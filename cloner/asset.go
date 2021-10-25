@@ -2,6 +2,7 @@ package cloner
 
 import (
 	"errors"
+	"net/url"
 	"os"
 	"path"
 )
@@ -62,15 +63,15 @@ func (m *NexusAsset) getTemporaryFile(tmpdir string) (file *os.File, e error) {
 // TODO
 // show download progress
 // https://golangcode.com/download-a-file-with-progress/ - example
-func (m *NexusAsset) downloadRepositoryAsset() (e error) {
+func (m *NexusAsset) downloadRepositoryAsset(file *os.File) (e error) {
 	if len(m.DownloadURL) == 0 {
 		gLog.Error().Str("asset", m.ID).Str("path", m.Path).Msg("There is no DownloadURL in given asset. Could not download asset!")
 	}
 
-	// var rrl *url.URL
-	// if rrl, e = url.Parse(m.DownloadURL); e != nil {
-	// 	return
-	// }
+	var rrl *url.URL
+	if rrl, e = url.Parse(m.DownloadURL); e != nil {
+		return
+	}
 
-	return
+	return gApi.getNexusFile(rrl.String(), file)
 }

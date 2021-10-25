@@ -62,7 +62,7 @@ func main() {
 		cli.DurationFlag{
 			Name:  "http-client-timeout",
 			Usage: "internal HTTP client timeout (ms)",
-			Value: 1000 * time.Millisecond,
+			Value: 5 * time.Second,
 		},
 		cli.BoolFlag{
 			Name:  "http-client-insecure",
@@ -72,23 +72,17 @@ func main() {
 		// Queue settings
 		//
 
-	if len(m.tempPath) != 0 && !gCli.Bool("temp-path-save") {
-
 		// System settings
 		cli.StringFlag{
 			Name:  "temp-path-prefix",
 			Usage: "Define prefix for temporary directory. If not defined, UNIX or WIN default will be used.",
 		},
 		cli.BoolFlag{
-			Name: "temp-path-save",
+			Name:  "temp-path-save",
 			Usage: "Flag for saving temp path content before program close. Flag for debugging only.",
 		},
 
 		// Application options
-		cli.StringFlag{
-			Name:  "tmpdir",
-			Usage: "temporary directory for artefacts synchronization",
-		},
 		cli.StringFlag{
 			Name:  "srcRepoName",
 			Usage: "Source repository name",
@@ -120,6 +114,14 @@ func main() {
 		cli.StringFlag{
 			Name:  "dstRepoPassword",
 			Usage: "Credentials for destination repository access",
+		},
+		cli.BoolFlag{
+			Name:  "skip-download",
+			Usage: "Skip download after finding missing assets. Flag for debugging only.",
+		},
+		cli.BoolFlag{
+			Name:  "skip-download-errors",
+			Usage: "Continue synchronization process if missing assets download detected",
 		},
 	}
 	app.Action = func(c *cli.Context) (e error) {

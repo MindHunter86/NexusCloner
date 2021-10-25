@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 )
 
 type nexusApi struct {
@@ -36,19 +37,22 @@ func newNexusApi(u, p string) *nexusApi {
 	}
 }
 
+func (m *nexusApi) authorizeNexusRequest(r *http.Request) {
+	if len(m.username) > 0 && len(m.password) > 0 {
+		r.SetBasicAuth(m.username, m.password)
+	}
+
+	r.Header.Set("Accept", "application/json")
+	r.Header.Set("Content-Type", "application/json; charset=UTF-8")
+}
+
 func (m *nexusApi) getNexusRequest(url string, rspJsonSchema interface{}) (e error) {
 	var req *http.Request
 	if req, e = http.NewRequest("GET", url, nil); e != nil {
 		return
 	}
 
-	if len(m.username) > 0 && len(m.password) > 0 {
-		req.SetBasicAuth(m.username, m.password)
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-
+	m.authorizeNexusRequest(req)
 	gLog.Debug().Str("url", url).Msg("trying to make api request")
 
 	var rsp *http.Response
@@ -73,4 +77,30 @@ func (m *nexusApi) parseNexusResponse(rsp *io.ReadCloser, rspJsonSchema interfac
 	}
 
 	return json.Unmarshal(data, &rspJsonSchema)
+}
+
+func (m *nexusApi) getNexusFile(url string, file *os.File) (e error) {
+	var req *http.Request
+	if req, e = http.NewRequest("GET", url, nil); e != nil {
+		return
+	}
+
+	m.authorizeNexusRequest(req)
+
+	var rsp *http.Response
+	if rsp, e = m.Client.Do(req); e != nil {
+		return
+	}
+
+	if rsp.StatusCode != http.StatusOK {
+		gLog.Warn().Int("status", rsp.StatusCode).Msg("Abnormal API response! Check it immediately!")
+		return nxsErrRq404
+	}
+
+	defer rsp.Body.Close()
+	if _, e = io.Copy(file, rsp.Body); e != nil {
+		return
+	}
+
+	return
 }
