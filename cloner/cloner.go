@@ -1,6 +1,8 @@
 package cloner
 
 import (
+	"errors"
+
 	"github.com/rs/zerolog"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -13,6 +15,10 @@ var (
 	gLog *zerolog.Logger
 	gCli *cli.Context
 	gApi *nexusApi
+)
+
+var (
+	errClNoMissAssets = errors.New("There is not missing assets detected. Repository sinchronization is not needed.")
 )
 
 func NewCloner(l *zerolog.Logger) *Cloner {
@@ -37,17 +43,75 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 		gCli.String("dstRepoName"),
 	)
 
+	defer func() {
+		m.srcNexus.destruct()
+		m.dstNexus.destruct()
+	}()
+
+	return m.sync()
 	// _, err := newNexus().getRepositoryAssets(gCli.String("srcRepoName"))
-	return nil
 }
 
-func (m *Cloner) getMetaFromRepositories() {
+func (m *Cloner) sync() (e error) {
 
+	// 1. get data from src and dst repositories
+	var srcAssets, dstAssets []*NexusAsset
+	if srcAssets, dstAssets, e = m.getMetaFromRepositories(); e != nil {
+		return
+	}
+
+	// 2. compare  dst assets from src (by id)
+	// TODO - compare by checksum if flag found (2.1)
+	var missAssets []*NexusAsset
+	if missAssets = m.getMissingAssets(srcAssets, dstAssets); len(missAssets) == 0 {
+		return errClNoMissAssets
+	}
+
+	// 3. download missed assets from src repository
+
+	return
 }
 
-// TODO
+func (m *Cloner) getMetaFromRepositories() (srcAssets, dstAssets []*NexusAsset, e error) {
+	if srcAssets, e = m.srcNexus.getRepositoryAssets(); e != nil {
+		return
+	}
+
+	if dstAssets, e = m.dstNexus.getRepositoryAssets(); e != nil {
+		return
+	}
+
+	return
+}
+
+func (m *Cloner) getMissingAssets(srcACollection, dstAColltion []*NexusAsset) (missingAssets []*NexusAsset) {
+	var srcAssets = make(map[string]*NexusAsset, len(srcACollection))
+
+	gLog.Debug().Int("srcColl", len(srcACollection)).Int("dstColl", len(dstAColltion)).Msg("Starting search of missing assets")
+
+	for _, asset := range srcACollection {
+		srcAssets[asset.ID] = asset
+	}
+
+	for _, asset := range dstAColltion {
+		if _, found := srcAssets[asset.ID]; !found {
+			missingAssets = append(missingAssets, asset)
+		}
+	}
+
+	gLog.Info().Msgf("There are %d missing assets in destination repository", len(missingAssets))
+	return
+}
+
+func (m *Cloner) downloadMissingAssets(assets []*NexusAsset) error { return nil }
+
+// TODO CODE
+// queue module
+
+// TODO PLAN
 // 1. get data from src and dst repos
-// 2. compare dst assets from src (by path and checksum)
+// 2. compare dst assets from src (by id and checksum)
+// 2.1 compare dst and src hashes
 // 3. download assets from diff list
 // 4. check checksum (md5)
 // 5. upload verified assets to dst

@@ -17,7 +17,6 @@ type nexusApi struct {
 
 var (
 	nxsErrRspNotFound = errors.New("Could not get the requested obj because of empty response from Nexus!")
-	nxsErrRspTooMany  = errors.New("Coudld not get the requested obj because of too many returned objs from Nexus!")
 	nxsErrRspUnknown  = errors.New("Could not get the requested obj because of Nexus abnormal response! Check logs for more information.")
 	nxsErrRq404       = errors.New("Could not complete the request because of Nexus api respond 404 error!")
 )

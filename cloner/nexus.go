@@ -2,7 +2,10 @@ package cloner
 
 import (
 	"errors"
+	"io/ioutil"
 	"net/url"
+	"os"
+	"runtime"
 )
 
 type nexus struct {
@@ -12,7 +15,8 @@ type nexus struct {
 	repositoryName   string
 	assetsCollection []*NexusAsset
 
-	api *nexusApi
+	api      *nexusApi
+	tempPath string
 }
 
 func newNexus(ur, us, p, rn string) *nexus {
@@ -23,6 +27,14 @@ func newNexus(ur, us, p, rn string) *nexus {
 		password:       p,
 		repositoryName: rn,
 		api:            api,
+	}
+}
+
+func (m *nexus) destruct() {
+	if len(m.tempPath) != 0 && !gCli.Bool("temp-path-save") {
+		if e := os.RemoveAll(m.tempPath); e != nil {
+			gLog.Warn().Err(e).Msg("There is some errors in Destruct() function. Looks bad.")
+		}
 	}
 }
 
@@ -45,18 +57,18 @@ func (m *nexus) getRepositoryStatus() (e error) {
 	return
 }
 
-func (m *nexus) getRepositoryAssets(repository string) (assets []*NexusAsset, e error) {
-	if e := m.getRepositoryStatus(); e != nil {
-		return nil, e
+func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
+	if e = m.getRepositoryStatus(); e != nil {
+		return
 	}
 
 	var rrl *url.URL
-	if rrl, e = url.Parse(gCli.String("srcRepoUrl") + "/service/rest/v1/assets"); e != nil {
+	if rrl, e = url.Parse(m.url + "/service/rest/v1/assets"); e != nil {
 		return
 	}
 
 	var rgs = &url.Values{}
-	rgs.Set("repository", repository)
+	rgs.Set("repository", m.repositoryName)
 	rrl.RawQuery = rgs.Encode()
 
 	var rsp *NexusAssetsCollection
@@ -88,4 +100,22 @@ func (m *nexus) getRepositoryAssets(repository string) (assets []*NexusAsset, e 
 
 	gLog.Info().Int("count", len(assets)).Msg("Successfully parsed src repository assets")
 	return
+}
+
+func (m *nexus) createTemporaryDirectory() (e error) {
+	pathPrefix := gCli.String("temp-path-prefix")
+	if runtime.GOOS == "linux" && len(pathPrefix) == 0 {
+		pathPrefix = "/var/tmp"
+	}
+
+	gLog.Debug().Msgf("creating temporary path with %s prefix", pathPrefix)
+	if m.tempPath, e = ioutil.TempDir(pathPrefix, "*"); e != nil {
+		return
+	}
+
+	return
+}
+
+func (m *nexus) getTemporaryDirectory() string {
+	return m.tempPath
 }

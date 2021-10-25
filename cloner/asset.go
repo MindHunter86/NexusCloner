@@ -1,5 +1,11 @@
 package cloner
 
+import (
+	"errors"
+	"os"
+	"path"
+)
+
 type (
 	NexusAssetsCollection struct {
 		Items             []*NexusAsset `json:"items,omitempty"`
@@ -34,3 +40,37 @@ type (
 		Version    string `json:"version,omitempty"`
 	}
 )
+
+// TODO
+// OPTIMIZE - https://pkg.go.dev/os@go1.17.2#OpenFile
+// !! Note - returned FD must be closed!!
+func (m *NexusAsset) getTemporaryFile(tmpdir string) (file *os.File, e error) {
+	var filename = path.Base(m.Path)
+
+	if file, e = os.OpenFile(tmpdir+"/"+filename, os.O_RDWR|os.O_CREATE, 0600); e != nil {
+		if !errors.Is(e, os.ErrNotExist) {
+			return
+		}
+
+		gLog.Warn().Err(e).Str("filename", filename).Msg("Given filename was found. It will be rewritten in the next iterations.")
+		return
+	}
+
+	return os.Create(tmpdir + "/" + filename)
+}
+
+// TODO
+// show download progress
+// https://golangcode.com/download-a-file-with-progress/ - example
+func (m *NexusAsset) downloadRepositoryAsset() (e error) {
+	if len(m.DownloadURL) == 0 {
+		gLog.Error().Str("asset", m.ID).Str("path", m.Path).Msg("There is no DownloadURL in given asset. Could not download asset!")
+	}
+
+	// var rrl *url.URL
+	// if rrl, e = url.Parse(m.DownloadURL); e != nil {
+	// 	return
+	// }
+
+	return
+}

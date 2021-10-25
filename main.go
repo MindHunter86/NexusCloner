@@ -72,6 +72,18 @@ func main() {
 		// Queue settings
 		//
 
+	if len(m.tempPath) != 0 && !gCli.Bool("temp-path-save") {
+
+		// System settings
+		cli.StringFlag{
+			Name:  "temp-path-prefix",
+			Usage: "Define prefix for temporary directory. If not defined, UNIX or WIN default will be used.",
+		},
+		cli.BoolFlag{
+			Name: "temp-path-save",
+			Usage: "Flag for saving temp path content before program close. Flag for debugging only.",
+		},
+
 		// Application options
 		cli.StringFlag{
 			Name:  "tmpdir",
