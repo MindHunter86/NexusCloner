@@ -2,6 +2,7 @@ package cloner
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"gopkg.in/urfave/cli.v1"
@@ -98,19 +99,23 @@ func (m *Cloner) getMetaFromRepositories() (srcAssets, dstAssets []*NexusAsset, 
 	return
 }
 
-func (m *Cloner) getMissingAssets(srcACollection, dstAColltion []*NexusAsset) (missingAssets []*NexusAsset) {
-	var srcAssets = make(map[string]*NexusAsset, len(srcACollection))
+func (m *Cloner) getMissingAssets(srcACollection, dstACollection []*NexusAsset) (missingAssets []*NexusAsset) {
+	var dstAssets = make(map[string]*NexusAsset, len(dstACollection))
 
-	gLog.Debug().Int("srcColl", len(srcACollection)).Int("dstColl", len(dstAColltion)).Msg("Starting search of missing assets")
+	gLog.Debug().Int("srcColl", len(srcACollection)).Int("dstColl", len(dstACollection)).Msg("Starting search of missing assets")
 
-	for _, asset := range srcACollection {
-		srcAssets[asset.ID] = asset
+	for _, asset := range dstACollection {
+		dstAssets[strings.ReplaceAll(asset.Path, "/", "_")] = asset
 	}
 
-	for _, asset := range dstAColltion {
-		if _, found := srcAssets[asset.ID]; !found {
+	for _, asset := range srcACollection {
+		if _, found := dstAssets[strings.ReplaceAll(asset.Path, "/", "_")]; !found {
 			missingAssets = append(missingAssets, asset)
 		}
+	}
+
+	for _, asset := range missingAssets {
+		gLog.Debug().Msg("Missing asset - " + strings.ReplaceAll(asset.Path, "/", "_"))
 	}
 
 	gLog.Info().Msgf("There are %d missing assets in destination repository", len(missingAssets))

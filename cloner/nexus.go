@@ -102,10 +102,10 @@ func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
 
 		rgs.Set("continuationToken", rsp.ContinuationToken)
 		rrl.RawQuery = rgs.Encode()
-		rsp.ContinuationToken = ""
+		rsp = nil
 	}
 
-	gLog.Info().Int("count", len(assets)).Msg("Successfully parsed src repository assets")
+	gLog.Info().Int("count", len(assets)).Msg("Successfully parsed repository assets")
 	return
 }
 

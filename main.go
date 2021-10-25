@@ -24,8 +24,6 @@ func main() {
 
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
-	log = log.Hook(SeverityHook{})
-
 	app := cli.NewApp()
 	app.Name = "NexusCloner"
 	app.Version = "0.1"
@@ -43,7 +41,7 @@ func main() {
 		// Some common options
 		cli.StringFlag{
 			Name:  "loglevel, l",
-			Value: "debug",
+			Value: "info",
 			Usage: "log level (debug, info, warn, error, fatal, panic)",
 		},
 		cli.StringFlag{
@@ -125,11 +123,9 @@ func main() {
 		},
 	}
 	app.Action = func(c *cli.Context) (e error) {
-		log.Debug().Msg("prgm started")
-
-		// Usage: "log level (debug, info, warn, error, fatal, panic)",
 		switch c.String("loglevel") {
 		case "debug":
+			log = log.Hook(SeverityHook{})
 			zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		case "info":
 			zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -144,6 +140,8 @@ func main() {
 		default:
 			log.Warn().Str("input", c.String("loglevel")).Msg("Abnormal data has been given for loglevel!")
 		}
+
+		log.Debug().Msg("prgm started")
 
 		var sLog *syslog.Writer
 		if len(c.String("syslog-server")) != 0 {
