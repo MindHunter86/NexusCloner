@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path"
+	"strings"
 )
 
 type (
@@ -57,4 +58,8 @@ func (m *NexusAsset) getTemporaryFile(tmpdir string) (file *os.File, e error) {
 	}
 
 	return os.Create(tmpdir + "/" + filename)
+}
+
+func (m *NexusAsset) getHumanReadbleName() string {
+	return strings.ReplaceAll(m.Path, "/", "_")
 }

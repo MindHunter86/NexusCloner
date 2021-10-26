@@ -110,22 +110,22 @@ func (m *Cloner) getMissingAssets(srcACollection, dstACollection []*NexusAsset) 
 	gLog.Debug().Int("srcColl", len(srcACollection)).Int("dstColl", len(dstACollection)).Msg("Starting search of missing assets")
 
 	for _, asset := range dstACollection {
-		dstAssets[strings.ReplaceAll(asset.Path, "/", "_")] = asset
+		dstAssets[asset.getHumanReadbleName()] = asset
 	}
 
 	for _, asset := range srcACollection {
-		if _, found := dstAssets[strings.ReplaceAll(asset.Path, "/", "_")]; !found {
+		if _, found := dstAssets[asset.getHumanReadbleName()]; !found {
 			missingAssets = append(missingAssets, asset)
 		}
 	}
 
 	if gIsDebug {
 		for _, asset := range missingAssets {
-			gLog.Debug().Msg("Missing asset - " + strings.ReplaceAll(asset.Path, "/", "_"))
+			gLog.Debug().Msg("Missing asset - " + asset.getHumanReadbleName())
 		}
 	}
 
-	gLog.Info().Msgf("There are %d missing assets in destination repository", len(missingAssets))
+	gLog.Info().Msgf("There are %d missing assets in destination repository. Filelist u can see in debug logs.", len(missingAssets))
 	return
 }
 

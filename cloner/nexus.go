@@ -131,6 +131,7 @@ func (m *nexus) getTemporaryDirectory() string {
 // show download progress
 // https://golangcode.com/download-a-file-with-progress/ - example
 func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
+	var dwnListCount = len(assets)
 	var downloaded, errors int
 
 	for _, asset := range assets {
@@ -154,6 +155,7 @@ func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
 		}
 
 		downloaded++
+		gLog.Info().Msgf("%s file has been downloaded successfully. Remaining %d files.", asset.getHumanReadbleName(), dwnListCount-downloaded)
 	}
 
 	if errors > 0 {
