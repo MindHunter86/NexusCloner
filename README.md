@@ -24,7 +24,7 @@ GLOBAL OPTIONS:
    --dstRepoUsername value      Credentials for destination repository access
    --http-client-insecure       disable TLS certificate verification
    --http-client-timeout value  internal HTTP client timeout (ms) (default: 5s)
-   --loglevel value, -l value   log level (debug, info, warn, error, fatal, panic) (default: "debug")
+   --loglevel value, -l value   log level (debug, info, warn, error, fatal, panic) (default: "info")
    --skip-download              Skip download after finding missing assets. Flag for debugging only.
    --skip-download-errors       Continue synchronization process if missing assets download detected
    --srcRepoName value          Source repository name
