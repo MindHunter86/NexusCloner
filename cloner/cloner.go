@@ -13,9 +13,10 @@ type Cloner struct {
 }
 
 var (
-	gLog *zerolog.Logger
-	gCli *cli.Context
-	gApi *nexusApi
+	gLog     *zerolog.Logger
+	gCli     *cli.Context
+	gApi     *nexusApi
+	gIsDebug bool
 )
 
 var (
@@ -29,6 +30,10 @@ func NewCloner(l *zerolog.Logger) *Cloner {
 
 func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 	gCli = ctx
+
+	if strings.ToLower(gCli.String("loglevel")) == "debug" {
+		gIsDebug = true
+	}
 
 	m.srcNexus = newNexus(
 		gCli.String("srcRepoUrl"),
@@ -114,8 +119,10 @@ func (m *Cloner) getMissingAssets(srcACollection, dstACollection []*NexusAsset) 
 		}
 	}
 
-	for _, asset := range missingAssets {
-		gLog.Debug().Msg("Missing asset - " + strings.ReplaceAll(asset.Path, "/", "_"))
+	if gIsDebug {
+		for _, asset := range missingAssets {
+			gLog.Debug().Msg("Missing asset - " + strings.ReplaceAll(asset.Path, "/", "_"))
+		}
 	}
 
 	gLog.Info().Msgf("There are %d missing assets in destination repository", len(missingAssets))

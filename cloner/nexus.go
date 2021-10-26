@@ -127,6 +127,9 @@ func (m *nexus) getTemporaryDirectory() string {
 	return m.tempPath
 }
 
+// TODO
+// show download progress
+// https://golangcode.com/download-a-file-with-progress/ - example
 func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
 	var downloaded, errors int
 
@@ -139,7 +142,12 @@ func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
 		}
 		defer file.Close()
 
-		if e = asset.downloadRepositoryAsset(file); e != nil {
+		var rrl *url.URL
+		if rrl, e = url.Parse(asset.DownloadURL); e != nil {
+			return
+		}
+
+		if e = m.api.getNexusFile(rrl.String(), file); e != nil {
 			gLog.Error().Err(e).Msgf("There is error while downloading asset. Asset %s will be skipped.", asset.ID)
 			errors++
 			continue
