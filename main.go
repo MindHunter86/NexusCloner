@@ -121,6 +121,10 @@ func main() {
 			Name:  "skip-download-errors",
 			Usage: "Continue synchronization process if missing assets download detected",
 		},
+		cli.BoolFlag{
+			Name:  "skip-upload",
+			Usage: "Skip upload after downloading missing assets. Flag for debugging only.",
+		},
 	}
 	app.Action = func(c *cli.Context) (e error) {
 		switch c.String("loglevel") {

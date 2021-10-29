@@ -61,9 +61,9 @@ func (m *NexusAsset) getTemporaryFile(tmpdir string) (file *os.File, e error) {
 	return os.Create(tmpdir + "/" + filename)
 }
 
-func (m *NexusAsset) isFileExists(tmpdir string) (e error) {
+func (m *NexusAsset) isFileExists(tmpdir string) (file *os.File, e error) {
 	var filename = path.Base(m.Path)
-	if _, e = os.OpenFile(tmpdir+"/"+filename, os.O_RDONLY, 0600); e != nil {
+	if file, e = os.OpenFile(tmpdir+"/"+filename, os.O_RDONLY, 0600); e != nil {
 		if !errors.Is(e, os.ErrNotExist) {
 			return
 		}

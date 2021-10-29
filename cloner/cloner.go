@@ -86,8 +86,16 @@ func (m *Cloner) sync() (e error) {
 		return
 	}
 
+	// 4. Uplaod missed assets
+	if gCli.Bool("skip-upload") {
+		return
+	}
 	// var tmpdir string
 	// tmpdir = m.srcNexus.getTemporaryDirectory()
+
+	if e = m.srcNexus.uploadMissingAssets(missAssets); e != nil {
+		return
+	}
 
 	return
 }

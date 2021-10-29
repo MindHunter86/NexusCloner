@@ -1,11 +1,15 @@
 package cloner
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/url"
 	"os"
 	"runtime"
+	"strings"
 )
 
 var (
@@ -170,6 +174,109 @@ func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
 }
 
 func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
-	
+	var isErrored bool
+
+	for _, asset := range assets {
+		var file *os.File
+		if file, e = asset.isFileExists(m.tempPath); e != nil {
+			isErrored = true
+			gLog.Error().Err(e).Str("filename", asset.getHumanReadbleName()).
+				Msg("Could not find the asset's file. Asset will be skipped!")
+			continue
+		}
+
+		var fileApiMeta = make(map[string]io.Reader)
+		fileApiMeta["asset0"] = file
+		fileApiMeta["asset0.extension"] = strings.NewReader(asset.Maven2.Extension)
+		fileApiMeta["groupId"] = strings.NewReader(asset.Maven2.GroupID)
+		fileApiMeta["artifactId"] = strings.NewReader(asset.Maven2.ArtifactID)
+		fileApiMeta["version"] = strings.NewReader(asset.Maven2.Version)
+
+		var body *bytes.Buffer
+		if body, e = m.getNexusFileMeta(fileApiMeta); e != nil {
+			isErrored = true
+			gLog.Error().Err(e).Str("filename", asset.getHumanReadbleName()).
+				Msg("Could not get meta data for the asset's file.")
+			continue
+		}
+
+		var rrl *url.URL
+		if rrl, e = url.Parse(m.url + "/service/rest/v1/components"); e != nil {
+			return
+		}
+
+		if e = m.api.putNexusFile(rrl.String(), body); e != nil {
+			isErrored = true
+			continue
+		}
+
+	}
+
+	if isErrored {
+		gLog.Warn().Msg("There was some errors in the upload proccess. Check logs and try again.")
+	}
+
 	return
 }
+
+func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, e error) {
+
+	var mw = multipart.NewWriter(buf) // TODO BUG with pointers?
+	defer mw.Close()
+
+	for k, v := range meta {
+		var fw io.Writer
+
+		// !!
+		// TODO this shit from google. I dont know about DEFER in IF!
+		if x, ok := v.(io.Closer); ok {
+			defer x.Close()
+		}
+
+		if x, ok := v.(*os.File); ok {
+			if fw, e = mw.CreateFormFile(k, x.Name()); e != nil {
+				return
+			} else {
+				if fw, e = mw.CreateFormField(k); e != nil {
+					return
+				}
+			}
+		}
+
+		if _, e = io.Copy(fw, v); e != nil {
+			return
+		}
+	}
+
+	return
+}
+
+/*	Google + stackoverflow shit :
+// Prepare a form that you will submit to that URL.
+var b bytes.Buffer
+w := multipart.NewWriter(&b)
+for key, r := range values {
+    var fw io.Writer
+    if x, ok := r.(io.Closer); ok {
+        defer x.Close()
+    }
+    // Add an image file
+    if x, ok := r.(*os.File); ok {
+        if fw, err = w.CreateFormFile(key, x.Name()); err != nil {
+            return
+        }
+    } else {
+        // Add other fields
+        if fw, err = w.CreateFormField(key); err != nil {
+            return
+        }
+    }
+    if _, err = io.Copy(fw, r); err != nil {
+        return err
+    }
+
+}
+// Don't forget to close the multipart writer.
+// If you don't close it, your request will be missing the terminating boundary.
+w.Close()
+*/
