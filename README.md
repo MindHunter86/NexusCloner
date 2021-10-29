@@ -9,7 +9,7 @@ USAGE:
    main [global options] command [command options] [arguments...]
 
 VERSION:
-   0.1
+   1.0
 
 AUTHOR:
    Vadimka K. <admin@vkom.cc>
@@ -19,18 +19,19 @@ COMMANDS:
 
 GLOBAL OPTIONS:
    --dstRepoName value          Destination repository name
-   --dstRepoPassword value      Credentials for destination repository access
+   --dstRepoPassword value      Credentials for destination repository access [$NCL_DST_PASSWORD]
    --dstRepoUrl value           Destination repository url
-   --dstRepoUsername value      Credentials for destination repository access
+   --dstRepoUsername value      Credentials for destination repository access [$NCL_DST_USERNAME]
    --http-client-insecure       disable TLS certificate verification
    --http-client-timeout value  internal HTTP client timeout (ms) (default: 5s)
    --loglevel value, -l value   log level (debug, info, warn, error, fatal, panic) (default: "info")
    --skip-download              Skip download after finding missing assets. Flag for debugging only.
    --skip-download-errors       Continue synchronization process if missing assets download detected
+   --skip-upload                Skip upload after downloading missing assets. Flag for debugging only.
    --srcRepoName value          Source repository name
-   --srcRepoPassword value      Credentials for source repository access
+   --srcRepoPassword value      Credentials for source repository access [$NCL_SRC_PASSWORD]
    --srcRepoUrl value           Source repository url
-   --srcRepoUsername value      Credentials for source repository access
+   --srcRepoUsername value      Credentials for source repository access [$NCL_SRC_USERNAME]
    --syslog-proto value         (default: "tcp")
    --syslog-server value        DON'T FORGET ABOUT TLS\SSL, COMRADE
    --syslog-tag value           

@@ -26,7 +26,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "NexusCloner"
-	app.Version = "0.1"
+	app.Version = "1.0"
 	app.Compiled = time.Now()
 	app.Authors = []cli.Author{
 		{
