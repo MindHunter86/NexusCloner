@@ -104,3 +104,34 @@ func (m *nexusApi) getNexusFile(url string, file *os.File) (e error) {
 
 	return
 }
+
+func (m *nexusApi) putNexusFile(url string, body io.Reader) (e error) {
+	var req *http.Request
+	if req, e = http.NewRequest("POST", url, body); e != nil {
+		return
+	}
+
+	m.authorizeNexusRequest(req)
+
+	var rsp *http.Response
+	if rsp, e = m.Client.Do(req); e != nil {
+		return
+	}
+
+	if rsp.StatusCode != http.StatusOK {
+		gLog.Warn().Int("status", rsp.StatusCode).Msg("Abnormal API response! Check it immediately!")
+		return nxsErrRq404
+	}
+
+	if gIsDebug {
+		defer rsp.Body.Close()
+		var rspBody []byte
+		if rspBody, e = ioutil.ReadAll(rsp.Body); e != nil {
+			return
+		}
+
+		gLog.Debug().Msg("Nexus API response:  " + string(rspBody))
+	}
+
+	return
+}

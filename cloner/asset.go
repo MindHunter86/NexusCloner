@@ -53,11 +53,27 @@ func (m *NexusAsset) getTemporaryFile(tmpdir string) (file *os.File, e error) {
 			return
 		}
 
-		gLog.Warn().Err(e).Str("filename", filename).Msg("Given filename was found. It will be rewritten in the next iterations.")
+		gLog.Warn().Err(e).Str("filename", filename).
+			Msg("Given filename was found. It will be rewritten in the next iterations.")
 		return
 	}
 
 	return os.Create(tmpdir + "/" + filename)
+}
+
+func (m *NexusAsset) isFileExists(tmpdir string) (e error) {
+	var filename = path.Base(m.Path)
+	if _, e = os.OpenFile(tmpdir+"/"+filename, os.O_RDONLY, 0600); e != nil {
+		if !errors.Is(e, os.ErrNotExist) {
+			return
+		}
+
+		gLog.Error().Err(e).Str("filename", filename).
+			Msg("Internal error! The asset file not found. Is download ok? The asset will be skipped.")
+		return
+	}
+
+	return
 }
 
 func (m *NexusAsset) getHumanReadbleName() string {

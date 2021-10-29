@@ -165,6 +165,11 @@ func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
 		}
 	}
 
-	gLog.Info().Msgf("Missing assets download has been completed. Downloaded %d files.", downloaded)
+	gLog.Info().Msgf("Missing assets successfully . Downloaded %d files.", downloaded)
 	return nil
+}
+
+func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
+	
+	return
 }
