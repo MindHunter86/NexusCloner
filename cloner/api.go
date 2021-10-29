@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -110,7 +109,6 @@ func (m *nexusApi) getNexusFile(url string, file *os.File) (e error) {
 }
 
 func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType string) (e error) {
-	fmt.Println(body.String())
 	var req *http.Request
 	if req, e = http.NewRequest("POST", url, body); e != nil {
 		return
@@ -127,11 +125,11 @@ func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType stri
 	}
 
 	if gIsDebug {
-		fmt.Println(m.dumpNexusRequest(req))
-		fmt.Println(m.dumpNexusResponse(rsp))
+		// fmt.Println(m.dumpNexusRequest(req))
+		// fmt.Println(m.dumpNexusResponse(rsp))
 	}
 
-	if rsp.StatusCode != http.StatusOK {
+	if rsp.StatusCode != http.StatusOK && rsp.StatusCode != http.StatusNoContent {
 		gLog.Warn().Int("status", rsp.StatusCode).Msg("Abnormal API response! Check it immediately!")
 		return nxsErrRq404
 	}

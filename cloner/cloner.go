@@ -123,7 +123,7 @@ func (m *Cloner) getMissingAssets(srcACollection, dstACollection []*NexusAsset) 
 
 	for _, asset := range srcACollection {
 		if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(md5|sha1|sha256|sha512))$", asset.getHumanReadbleName()); matched {
-			gLog.Debug().Msgf("Te asset %s will be skipped!", asset.getHumanReadbleName())
+			gLog.Debug().Msgf("The asset %s will be skipped!", asset.getHumanReadbleName())
 			continue
 		}
 

@@ -3,7 +3,6 @@ package cloner
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -215,8 +214,6 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 			continue
 		}
 
-		fmt.Println(body.String())
-
 		var rrl *url.URL
 		if rrl, e = url.Parse(m.url + "/service/rest/v1/components"); e != nil {
 			return
@@ -228,8 +225,6 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 
 		if e = m.api.putNexusFile(rrl.String(), body, contentType); e != nil {
 			isErrored = true
-			fmt.Println("dump")
-			fmt.Println(body.String())
 			continue
 		}
 
@@ -251,9 +246,6 @@ func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, 
 
 	for k, v := range meta {
 		var fw io.Writer
-		fmt.Println(k)
-		fmt.Println(v)
-
 		// !!
 		// TODO this shit from google. I dont know about DEFER in IF!
 		if x, ok := v.(io.Closer); ok {
