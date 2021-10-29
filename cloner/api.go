@@ -33,6 +33,7 @@ func newNexusApi(u, p string) *nexusApi {
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: gCli.Bool("http-client-insecure"),
 				},
+				DisableCompression: false,
 			},
 		},
 		username: u,
@@ -109,6 +110,7 @@ func (m *nexusApi) getNexusFile(url string, file *os.File) (e error) {
 }
 
 func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType string) (e error) {
+	fmt.Println(body.String())
 	var req *http.Request
 	if req, e = http.NewRequest("POST", url, body); e != nil {
 		return
@@ -118,11 +120,23 @@ func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType stri
 
 	// rewrite authorize() content type with mime multipart content
 	req.Header.Set("Content-Type", contentType)
+	req.Header.Del("Accept")
+
+	dump, e := httputil.DumpRequest(req, true)
+	if e != nil {
+		return
+	}
+	fmt.Println(string(dump))
 
 	var rsp *http.Response
 	if rsp, e = m.Client.Do(req); e != nil {
 		return
 	}
+	dump, e = httputil.DumpResponse(rsp, true)
+	if e != nil {
+		return
+	}
+	fmt.Println(string(dump))
 
 	if rsp.StatusCode != http.StatusOK {
 		gLog.Warn().Int("status", rsp.StatusCode).Msg("Abnormal API response! Check it immediately!")
@@ -145,7 +159,7 @@ func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType stri
 			return
 		}
 
-		gLog.Debug().Msg("Nexus API response:  " + string(rspBody))
+		gLog.Debug().Msg("Nexus API response: " + string(rspBody))
 	}
 
 	return

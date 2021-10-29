@@ -115,6 +115,11 @@ func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
 }
 
 func (m *nexus) createTemporaryDirectory() (e error) {
+	if len(gCli.String("process-continue-directory")) != 0 {
+		m.tempPath = gCli.String("process-continue-directory")
+		return
+	}
+
 	pathPrefix := gCli.String("temp-path-prefix")
 	if runtime.GOOS == "linux" && len(pathPrefix) == 0 {
 		pathPrefix = "/var/tmp"
@@ -203,6 +208,8 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 			continue
 		}
 
+		fmt.Println(body.String())
+
 		var rrl *url.URL
 		if rrl, e = url.Parse(m.url + "/service/rest/v1/components"); e != nil {
 			return
@@ -234,7 +241,6 @@ func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, 
 	buf = bytes.NewBuffer([]byte(""))
 	var buf2 bytes.Buffer
 	var mw = multipart.NewWriter(&buf2) // TODO BUG with pointers?
-	defer mw.Close()
 
 	for k, v := range meta {
 		var fw io.Writer
@@ -262,8 +268,14 @@ func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, 
 		}
 	}
 
+	mw.Close()
+	fmt.Println(buf2.String())
 	contentType = mw.FormDataContentType()
 	return &buf2, contentType, nil
+}
+
+func (m *nexus) setTemporaryDirectory(tdir string) {
+	m.tempPath = tdir
 }
 
 /*	Google + stackoverflow shit :

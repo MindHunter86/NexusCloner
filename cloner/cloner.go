@@ -78,22 +78,23 @@ func (m *Cloner) sync() (e error) {
 		return
 	}
 
-	if e = m.srcNexus.createTemporaryDirectory(); e != nil {
-		return
-	}
+	if len(gCli.String("process-continue-directory")) == 0 {
+		if e = m.srcNexus.createTemporaryDirectory(); e != nil {
+			return
+		}
 
-	if e = m.srcNexus.downloadMissingAssets(missAssets); e != nil {
-		return
+		if e = m.srcNexus.downloadMissingAssets(missAssets); e != nil {
+			return
+		}
 	}
 
 	// 4. Uplaod missed assets
 	if gCli.Bool("skip-upload") {
 		return
 	}
-	// var tmpdir string
-	// tmpdir = m.srcNexus.getTemporaryDirectory()
 
-	if e = m.srcNexus.uploadMissingAssets(missAssets); e != nil {
+	m.dstNexus.setTemporaryDirectory(m.srcNexus.getTemporaryDirectory())
+	if e = m.dstNexus.uploadMissingAssets(missAssets); e != nil {
 		return
 	}
 
@@ -144,8 +145,11 @@ func (m *Cloner) getMissingAssets(srcACollection, dstACollection []*NexusAsset) 
 // 1. get data from src and dst repos
 // 2. compare dst assets from src (by id and checksum)
 // 2.1 compare dst and src hashes
-// 2.2 find missing assets on a filesystem (if tmp directory is exists)
+// 2.2 find missing assets on a filesystem (if tmp directory is exists) !! REVERT
 // 2.3 check missing assets hashes with sums of files in tmp directory (if 2.2 is OK)
 // 3. download assets from diff list
 // 4. check checksum (md5)
 // 5. upload verified assets to dst
+
+// TODO 2
+// CHECK getNexusFileMeta BUG with defer !!
