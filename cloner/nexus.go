@@ -192,6 +192,13 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 			continue
 		}
 
+		gLog.Debug().Msg("asset - " + asset.getHumanReadbleName())
+
+		if len(asset.Maven2.Extension) == 0 {
+			gLog.Warn().Msgf("The file %s has strange metadata. Check it please and try again later.", asset.getHumanReadbleName())
+			continue
+		}
+
 		var fileApiMeta = make(map[string]io.Reader)
 		fileApiMeta["asset0"] = file
 		fileApiMeta["asset0.extension"] = strings.NewReader(asset.Maven2.Extension)
