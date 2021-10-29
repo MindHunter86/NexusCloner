@@ -78,14 +78,12 @@ func (m *Cloner) sync() (e error) {
 		return
 	}
 
-	if len(gCli.String("process-continue-directory")) == 0 {
-		if e = m.srcNexus.createTemporaryDirectory(); e != nil {
-			return
-		}
+	if e = m.srcNexus.createTemporaryDirectory(); e != nil {
+		return
+	}
 
-		if e = m.srcNexus.downloadMissingAssets(missAssets); e != nil {
-			return
-		}
+	if e = m.srcNexus.downloadMissingAssets(missAssets); e != nil {
+		return
 	}
 
 	// 4. Uplaod missed assets

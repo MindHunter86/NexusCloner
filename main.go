@@ -79,10 +79,6 @@ func main() {
 			Name:  "temp-path-save",
 			Usage: "Flag for saving temp path content before program close. Flag for debugging only.",
 		},
-		cli.StringFlag{
-			Name:  "process-continue-directory",
-			Usage: "Use temporary directory with previously downloaded files.",
-		},
 
 		// Application options
 		cli.StringFlag{
