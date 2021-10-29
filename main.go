@@ -90,12 +90,14 @@ func main() {
 			Usage: "Source repository url",
 		},
 		cli.StringFlag{
-			Name:  "srcRepoUsername",
-			Usage: "Credentials for source repository access",
+			Name:   "srcRepoUsername",
+			Usage:  "Credentials for source repository access",
+			EnvVar: "NCL_SRC_USERNAME",
 		},
 		cli.StringFlag{
-			Name:  "srcRepoPassword",
-			Usage: "Credentials for source repository access",
+			Name:   "srcRepoPassword",
+			Usage:  "Credentials for source repository access",
+			EnvVar: "NCL_SRC_PASSWORD",
 		},
 		cli.StringFlag{
 			Name:  "dstRepoName",
@@ -106,12 +108,14 @@ func main() {
 			Usage: "Destination repository url",
 		},
 		cli.StringFlag{
-			Name:  "dstRepoUsername",
-			Usage: "Credentials for destination repository access",
+			Name:   "dstRepoUsername",
+			Usage:  "Credentials for destination repository access",
+			EnvVar: "NCL_DST_USERNAME",
 		},
 		cli.StringFlag{
-			Name:  "dstRepoPassword",
-			Usage: "Credentials for destination repository access",
+			Name:   "dstRepoPassword",
+			Usage:  "Credentials for destination repository access",
+			EnvVar: "NCL_DST_PASSWORD",
 		},
 		cli.BoolFlag{
 			Name:  "skip-download",

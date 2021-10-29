@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"os"
 )
 
@@ -125,20 +126,29 @@ func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType stri
 		return
 	}
 
+	if gIsDebug {
+		fmt.Println(m.dumpNexusRequest(req))
+		fmt.Println(m.dumpNexusResponse(rsp))
+	}
+
 	if rsp.StatusCode != http.StatusOK {
 		gLog.Warn().Int("status", rsp.StatusCode).Msg("Abnormal API response! Check it immediately!")
 		return nxsErrRq404
 	}
 
-	if gIsDebug {
-		defer rsp.Body.Close()
-		var rspBody []byte
-		if rspBody, e = ioutil.ReadAll(rsp.Body); e != nil {
-			return
-		}
-
-		gLog.Debug().Msg("Nexus API response: " + string(rspBody))
-	}
-
 	return
+}
+
+func (m *nexusApi) dumpNexusRequest(r *http.Request) string {
+	dump, e := httputil.DumpRequest(r, true)
+	if e != nil {
+		gLog.Warn().Err(e).Msg("")
+	}
+	return string(dump)
+}
+func (m *nexusApi) dumpNexusResponse(r *http.Response) string {
+	dump, e := httputil.DumpResponse(r, true)
+	if e != nil {
+	}
+	return string(dump)
 }

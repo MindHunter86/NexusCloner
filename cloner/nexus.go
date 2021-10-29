@@ -239,8 +239,8 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 
 func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, contentType string, e error) {
 	buf = bytes.NewBuffer([]byte(""))
-	var buf2 bytes.Buffer
-	var mw = multipart.NewWriter(&buf2) // TODO BUG with pointers?
+	var mw = multipart.NewWriter(buf) // TODO BUG with pointers?
+	defer mw.Close()
 
 	for k, v := range meta {
 		var fw io.Writer
@@ -268,10 +268,8 @@ func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, 
 		}
 	}
 
-	mw.Close()
-	fmt.Println(buf2.String())
 	contentType = mw.FormDataContentType()
-	return &buf2, contentType, nil
+	return
 }
 
 func (m *nexus) setTemporaryDirectory(tdir string) {
