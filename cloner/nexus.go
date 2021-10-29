@@ -3,6 +3,7 @@ package cloner
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -175,6 +176,7 @@ func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
 
 func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 	var isErrored bool
+	var assetsCount = len(assets)
 
 	for _, asset := range assets {
 		var file *os.File
@@ -193,7 +195,8 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 		fileApiMeta["version"] = strings.NewReader(asset.Maven2.Version)
 
 		var body *bytes.Buffer
-		if body, e = m.getNexusFileMeta(fileApiMeta); e != nil {
+		var contentType string
+		if body, contentType, e = m.getNexusFileMeta(fileApiMeta); e != nil {
 			isErrored = true
 			gLog.Error().Err(e).Str("filename", asset.getHumanReadbleName()).
 				Msg("Could not get meta data for the asset's file.")
@@ -205,11 +208,19 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 			return
 		}
 
-		if e = m.api.putNexusFile(rrl.String(), body); e != nil {
+		var rgs = &url.Values{}
+		rgs.Set("repository", m.repositoryName)
+		rrl.RawQuery = rgs.Encode()
+
+		if e = m.api.putNexusFile(rrl.String(), body, contentType); e != nil {
 			isErrored = true
+			fmt.Println("dump")
+			fmt.Println(body.String())
 			continue
 		}
 
+		assetsCount--
+		gLog.Info().Msgf("The asset %s has been uploaded successfully. Remaining %d files", asset.getHumanReadbleName(), assetsCount)
 	}
 
 	if isErrored {
@@ -219,13 +230,16 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 	return
 }
 
-func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, e error) {
-
-	var mw = multipart.NewWriter(buf) // TODO BUG with pointers?
+func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, contentType string, e error) {
+	buf = bytes.NewBuffer([]byte(""))
+	var buf2 bytes.Buffer
+	var mw = multipart.NewWriter(&buf2) // TODO BUG with pointers?
 	defer mw.Close()
 
 	for k, v := range meta {
 		var fw io.Writer
+		fmt.Println(k)
+		fmt.Println(v)
 
 		// !!
 		// TODO this shit from google. I dont know about DEFER in IF!
@@ -236,10 +250,10 @@ func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, 
 		if x, ok := v.(*os.File); ok {
 			if fw, e = mw.CreateFormFile(k, x.Name()); e != nil {
 				return
-			} else {
-				if fw, e = mw.CreateFormField(k); e != nil {
-					return
-				}
+			}
+		} else {
+			if fw, e = mw.CreateFormField(k); e != nil {
+				return
 			}
 		}
 
@@ -248,7 +262,8 @@ func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, 
 		}
 	}
 
-	return
+	contentType = mw.FormDataContentType()
+	return &buf2, contentType, nil
 }
 
 /*	Google + stackoverflow shit :

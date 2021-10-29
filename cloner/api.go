@@ -1,12 +1,15 @@
 package cloner
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"os"
 )
 
@@ -105,13 +108,16 @@ func (m *nexusApi) getNexusFile(url string, file *os.File) (e error) {
 	return
 }
 
-func (m *nexusApi) putNexusFile(url string, body io.Reader) (e error) {
+func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType string) (e error) {
 	var req *http.Request
 	if req, e = http.NewRequest("POST", url, body); e != nil {
 		return
 	}
 
 	m.authorizeNexusRequest(req)
+
+	// rewrite authorize() content type with mime multipart content
+	req.Header.Set("Content-Type", contentType)
 
 	var rsp *http.Response
 	if rsp, e = m.Client.Do(req); e != nil {
@@ -120,6 +126,15 @@ func (m *nexusApi) putNexusFile(url string, body io.Reader) (e error) {
 
 	if rsp.StatusCode != http.StatusOK {
 		gLog.Warn().Int("status", rsp.StatusCode).Msg("Abnormal API response! Check it immediately!")
+
+		if gIsDebug {
+			if log, e := m.dumpNexusRequest(req, rsp); e != nil {
+				gLog.Error().Err(e).Msg("WARNING! Could not dump http request and http response for debugging!")
+			} else {
+				fmt.Println(log)
+			}
+		}
+
 		return nxsErrRq404
 	}
 
@@ -134,4 +149,21 @@ func (m *nexusApi) putNexusFile(url string, body io.Reader) (e error) {
 	}
 
 	return
+}
+
+func (m *nexusApi) dumpNexusRequest(r *http.Request, rsp *http.Response) (string, error) {
+	var buf bytes.Buffer
+	dump, e := httputil.DumpRequest(r, true)
+	if e != nil {
+		return "", e
+	}
+	buf.Write(dump)
+
+	dump, e = httputil.DumpResponse(rsp, true)
+	if e != nil {
+		return "", e
+	}
+
+	buf.Write(dump)
+	return buf.String(), nil
 }

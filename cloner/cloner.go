@@ -144,6 +144,8 @@ func (m *Cloner) getMissingAssets(srcACollection, dstACollection []*NexusAsset) 
 // 1. get data from src and dst repos
 // 2. compare dst assets from src (by id and checksum)
 // 2.1 compare dst and src hashes
+// 2.2 find missing assets on a filesystem (if tmp directory is exists)
+// 2.3 check missing assets hashes with sums of files in tmp directory (if 2.2 is OK)
 // 3. download assets from diff list
 // 4. check checksum (md5)
 // 5. upload verified assets to dst
