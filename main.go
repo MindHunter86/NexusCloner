@@ -1,7 +1,9 @@
+//go:build !syslog
+// +build !syslog
+
 package main
 
 import (
-	"log/syslog"
 	"os"
 	"runtime"
 	"sort"
@@ -16,14 +18,6 @@ import (
 var log zerolog.Logger
 
 func main() {
-	zerolog.TimeFieldFormat = time.RFC3339Nano
-
-	log = zerolog.New(zerolog.ConsoleWriter{
-		Out: os.Stderr,
-	}).With().Timestamp().Logger()
-
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-
 	app := cli.NewApp()
 	app.Name = "NexusCloner"
 	app.Version = "1.0"
@@ -37,34 +31,30 @@ func main() {
 	app.Copyright = "(c) 2021 mindhunter86"
 	app.Usage = "Repository cloning tool for nexus"
 
+	cli.VersionFlag = cli.BoolFlag{
+		Name:  "version, V",
+		Usage: "print the version",
+	}
+
 	app.Flags = []cli.Flag{
 		// Some common options
-		cli.StringFlag{
-			Name:  "loglevel, l",
-			Value: "info",
-			Usage: "log level (debug, info, warn, error, fatal, panic)",
+		cli.IntFlag{
+			Name:  "verbose, v",
+			Value: 5,
+			Usage: "Verbose `LEVEL` (value from 5(debug) to 0(panic) and -1 for log disabling(quite mode))",
 		},
-		cli.StringFlag{
-			Name:  "syslog-proto",
-			Value: "tcp",
-		},
-		cli.StringFlag{
-			Name:  "syslog-server",
-			Value: "",
-			Usage: "DON'T FORGET ABOUT TLS\\SSL, COMRADE",
-		},
-		cli.StringFlag{
-			Name:  "syslog-tag",
-			Value: "",
+		cli.BoolFlag{
+			Name:  "quite, q",
+			Usage: "Flag is equivalent to verbose -1",
 		},
 		cli.DurationFlag{
 			Name:  "http-client-timeout",
-			Usage: "internal HTTP client timeout (ms)",
-			Value: 5 * time.Second,
+			Usage: "Internal HTTP client connection `TIMEOUT` (format: 1000ms, 1s)",
+			Value: 10 * time.Second,
 		},
 		cli.BoolFlag{
 			Name:  "http-client-insecure",
-			Usage: "disable TLS certificate verification",
+			Usage: "Flag for TLS certificate verification disabling",
 		},
 
 		// Queue settings
@@ -73,7 +63,7 @@ func main() {
 		// System settings
 		cli.StringFlag{
 			Name:  "temp-path-prefix",
-			Usage: "Define prefix for temporary directory. If not defined, UNIX or WIN default will be used.",
+			Usage: "Define prefix for temporary `directory`. If not defined, UNIX or WIN default will be used.",
 		},
 		cli.BoolFlag{
 			Name:  "temp-path-save",
@@ -83,11 +73,11 @@ func main() {
 		// Application options
 		cli.StringFlag{
 			Name:  "srcRepoName",
-			Usage: "Source repository name",
+			Usage: "Source repository `name`",
 		},
 		cli.StringFlag{
 			Name:  "srcRepoUrl",
-			Usage: "Source repository url",
+			Usage: "Source repository `url`",
 		},
 		cli.StringFlag{
 			Name:   "srcRepoUsername",
@@ -101,11 +91,11 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "dstRepoName",
-			Usage: "Destination repository name",
+			Usage: "Destination repository `name`",
 		},
 		cli.StringFlag{
 			Name:  "dstRepoUrl",
-			Usage: "Destination repository url",
+			Usage: "Destination repository `url`",
 		},
 		cli.StringFlag{
 			Name:   "dstRepoUsername",
@@ -130,59 +120,27 @@ func main() {
 			Usage: "Skip upload after downloading missing assets. Flag for debugging only.",
 		},
 	}
+
 	app.Action = func(c *cli.Context) (e error) {
-		switch c.String("loglevel") {
-		case "debug":
-			log = log.Hook(SeverityHook{})
-			zerolog.SetGlobalLevel(zerolog.DebugLevel)
-		case "info":
-			zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		case "warn":
-			zerolog.SetGlobalLevel(zerolog.WarnLevel)
-		case "error":
-			zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-		case "fatal":
-			zerolog.SetGlobalLevel(zerolog.FatalLevel)
-		case "panic":
-			zerolog.SetGlobalLevel(zerolog.PanicLevel)
-		default:
-			log.Warn().Str("input", c.String("loglevel")).Msg("Abnormal data has been given for loglevel!")
+		log := zerolog.New(zerolog.ConsoleWriter{
+			Out: os.Stderr,
+		}).With().Timestamp().Logger().Hook(SeverityHook{})
+
+		zerolog.TimeFieldFormat = time.RFC3339Nano
+
+		if c.Int("verbose") < -1 || c.Int("verbose") > 5 {
+			log.Fatal().Msg("There is invalid data in verbose option. Option supports values for -1 to 5")
 		}
 
-		log.Debug().Msg("prgm started")
-
-		var sLog *syslog.Writer
-		if len(c.String("syslog-server")) != 0 {
-			log.Debug().Msg("Connecting to syslog server ...")
-
-			if sLog, e = syslog.Dial(
-				c.String("syslog-proto"),
-				c.String("syslog-server"),
-				syslog.LOG_INFO, // 2do put it into args
-				c.String("syslog-tag"),
-			); e != nil {
-				return
-			}
-
-			log.Debug().Msg("Syslog connection established! Reset zerolog for MultiLevelWriter set ...")
-
-			log = zerolog.New(zerolog.MultiLevelWriter(
-				zerolog.ConsoleWriter{
-					Out: os.Stderr,
-				},
-				sLog,
-			)).With().Timestamp().Logger()
-
-			log = log.Hook(SeverityHook{})
-
-			log.Info().Msg("Zerolog reinitialized! Starting commands...")
+		zerolog.SetGlobalLevel(zerolog.Level(int8((c.Int("verbose") - 5) * -1)))
+		if c.Int("verbose") == -1 || c.Bool("quite") {
+			zerolog.SetGlobalLevel(zerolog.Disabled)
 		}
 
-		// Application starts here:
-		return cloner.NewCloner(&log).Bootstrap(c)
+		return cloner.NewCloner(&log).Bootstrap(c) // Application starts here:
 	}
 
-	sort.Sort(cli.FlagsByName(app.Flags))
+	// sort.Sort(cli.FlagsByName(app.Flags))
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	if e := app.Run(os.Args); e != nil {
@@ -193,6 +151,10 @@ func main() {
 type SeverityHook struct{}
 
 func (h SeverityHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+	if level != zerolog.DebugLevel {
+		return
+	}
+
 	rfn := "unknown"
 	pcs := make([]uintptr, 1)
 
