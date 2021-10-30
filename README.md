@@ -12,7 +12,7 @@ Build application with syslog support (temporary marked as legacy)
 go build -ldflags="-s -w" -tags syslog $GOPATH/bin/NexusCloner
 ```
 
-After all building processes u may compress the application with UPX
+After all building processes u may compress the application with [UPX](https://upx.github.io/)
 ```
 upx -9 -k $GOPATH/bin/NexusCloner
 ```
