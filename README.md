@@ -1,8 +1,8 @@
 # NexusCloner
 Repository cloning tool for nexus
 
-## Building
-Base building
+## Build
+Base build
 ```
 go build -ldflags="-s -w" -o $GOPATH/bin/NexusCloner
 ```
