@@ -121,12 +121,12 @@ func main() {
 		},
 	}
 
-	app.Action = func(c *cli.Context) (e error) {
-		log := zerolog.New(zerolog.ConsoleWriter{
-			Out: os.Stderr,
-		}).With().Timestamp().Logger().Hook(SeverityHook{})
+	log := zerolog.New(zerolog.ConsoleWriter{
+		Out: os.Stderr,
+	}).With().Timestamp().Logger().Hook(SeverityHook{})
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 
-		zerolog.TimeFieldFormat = time.RFC3339Nano
+	app.Action = func(c *cli.Context) (e error) {
 
 		if c.Int("verbose") < -1 || c.Int("verbose") > 5 {
 			log.Fatal().Msg("There is invalid data in verbose option. Option supports values for -1 to 5")

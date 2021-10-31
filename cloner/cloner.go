@@ -71,7 +71,7 @@ func (m *Cloner) sync() (e error) {
 	// TODO - compare by checksum if flag found (2.1)
 	var missAssets []*NexusAsset
 	if missAssets = m.getMissingAssets(srcAssets, dstAssets); len(missAssets) == 0 {
-		return errClNoMissAssets
+		return // errClNoMissAssets
 	}
 
 	// 3. download missed assets from src repository
