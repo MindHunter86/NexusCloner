@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"cloner"
+	"github.com/MindHunter86/NexusCloner/cloner"
 	"github.com/rs/zerolog"
 	"gopkg.in/urfave/cli.v1"
 )
