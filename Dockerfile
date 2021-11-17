@@ -11,7 +11,7 @@ COPY go.sum ./
 RUN go mod download
 
 COPY *.go ./
-COPY cloner ./
+COPY cloner ./cloner
 RUN go build -ldflags="-s -w" -o /NexusCloner
 
 RUN apk add --no-cache upx \
@@ -24,7 +24,7 @@ LABEL maintainer="vkom <admin@vkom.cc>"
 
 WORKDIR /
 
-COPY --from=build /NexusCloner /usr/local/bin
+COPY --from=build /NexusCloner /usr/local/bin/NexusCloner
 
 USER nobody
 ENTRYPOINT ["/usr/local/bin/NexusCloner"]
