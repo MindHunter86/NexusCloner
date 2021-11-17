@@ -4,7 +4,8 @@
 FROM golang:1.16-alpine AS build
 LABEL maintainer="vkom <admin@vkom.cc>"
 
-WORKDIR /app
+WORKDIR /src/NexusCloner
+ENV GOPATH=/
 
 COPY go.mod ./
 COPY go.sum ./
