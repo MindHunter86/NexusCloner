@@ -27,4 +27,4 @@ WORKDIR /
 COPY --from=build /NexusCloner /usr/local/bin
 
 USER nobody
-ENDPOINT["/usr/local/bin/NexusCloner"]
+ENTRYPOINT ["/usr/local/bin/NexusCloner"]
