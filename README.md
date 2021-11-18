@@ -1,15 +1,16 @@
 # NexusCloner
 Repository cloning tool for nexus
 
-Table of Contents:
+## Table of Contents:
 - [Download](#download)
 - [Build](#build)
 - [Usage examples](#usage-examples)
    - [One repository](#one-repository)
    - [Two and more repositories](#two-and-more-repositories)
 - [Testing](#testing)
-- [Usage page](#usage-help)
+- [Usage page](#usage-page)
 
+----
 
 ## Download
 Check releases. There are windows, linux, macos binaries available for downloading.  
