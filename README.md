@@ -17,8 +17,48 @@ After all building processes u may compress the application with [UPX](https://u
 upx -9 -k $GOPATH/bin/NexusCloner
 ```
 
+## Usage examples
+### One repository
+Preperare credentials for source and destination repositories if u need:
+```
+cat <<-EOF | tee someFilePath.env
+NCL_DST_USERNAME=login
+NCL_SRC_PASSWORD=password
+EOF
+```
 
-## Common binary information
+Start repository migrations:
+```
+. someFilePath.env ; ./NexusCloner --srcRepoUrl https://source.repository.com --srcRepoName repositoryname --dstRepoUrl https://destination.repository.com --dstRepoName repositoryname
+```
+or if you prefer docker (replace *#IMAGE LINK#* with your builded docker image)
+```
+docker run --env-file someFilePath.env #IMAGE LINK# --srcRepoUrl https://source.repository.com --srcRepoName repositoryname --dstRepoUrl https://destination.repository.com --dstRepoName repositoryname
+```
+
+### Two and more repositories
+Preperare credentials for source and destination repositories if u need:
+```
+cat <<-EOF | tee someFilePath.env
+NCL_DST_USERNAME=login
+NCL_SRC_PASSWORD=password
+EOF
+```
+Prepare file with repository names for migration
+```
+cat <<-EOF | tee someFilePath2.list
+repoA
+repoB
+repo...
+EOF
+```
+Start parallel migration (replace *#THREAD COUNT#* with some int value)
+```
+. someFilePath.env \
+  && cat someFilePath2.list | xargs -n1 | xargs -ri -P #THREAD COUNT# ./NexusCloner -l warn --srcRepoUrl https://source.repository.com --srcRepoName {} --dstRepoUrl https://destination.repository.com --dstRepoName {}
+```
+
+## Usage page
 
 ```
 NAME:
