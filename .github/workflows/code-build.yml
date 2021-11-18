@@ -102,4 +102,4 @@ jobs:
       with:
         tag_name: ${{ needs.parse_phase.outputs.build_tag }}
         files: ./NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}${{ matrix.extention }}
-        token: ${{ GH_PAT_RELEASES }}
+        token: ${{ secret.GH_PAT_RELEASES }}
