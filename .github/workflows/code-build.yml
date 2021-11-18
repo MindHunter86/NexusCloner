@@ -68,13 +68,15 @@ jobs:
       matrix:
         goos: ["linux", "windows", "darwin"]
         goarch: ["386", "amd64"]
-        gooutput: ["NexusCloner"]
         include: # I think it's true tone build for A* and M1 processes
         - goos: darwin
           goarch: arm64
-          gooutput: NexusCloner
         - goos: windows
-          gooutput: NexusCloner.exe
+          goarch: 386
+          extention: .exe
+        - goos: windows
+          goarch: amd64
+          extention: .exe
         exclude:
         - goos: darwin
           goarch: 386
@@ -89,27 +91,22 @@ jobs:
     - name: Download all required imports
       run: go mod download
     - name: Build source code for ${{ matrix.goos }} ${{ matrix.goarch }}
-      run: go build -ldflags="-s -w" -o ./${{ matrix.gooutput }}
+      run: go build -ldflags="-s -w" -o ./NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}${{ matrix.extention }}
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
-    # - name: Build source code for ${{ matrix.goos }} ${{ matrix.goarch }}
-    #   run: go build -ldflags="-s -w" -o ./${{ matrix.gooutput }}
-    #   env:
-    #     GOOS: ${{ matrix.goos }}
-    #     GOARCH: ${{ matrix.goarch }}
     - name: Compress binary
-      run: upx -9 -k ./${{ matrix.gooutput }}
-    - name: Upload compiled binary
-      uses: actions/upload-artifact@v2
-      with:
-        name: NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}
-        path: ./${{ matrix.gooutput }}
-        retention-days: 1
+      run: upx -9 -k ./NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}${{ matrix.extention }}
+    # - name: Upload compiled binary
+    #   uses: actions/upload-artifact@v2
+    #   with:
+    #     name: NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}
+    #     path: ./NexusCloner${{ matrix.extention }}
+    #     retention-days: 1
     - name: Upload release asset
       uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ needs.parse_phase.outputs.build_tag }}
-        files: ./${{ matrix.gooutput }}
+        files: ./NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}${{ matrix.extention }}
