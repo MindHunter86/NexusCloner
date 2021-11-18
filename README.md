@@ -2,7 +2,7 @@
 Repository cloning tool for nexus
 
 ## Download
-Check releases. There are windows, linux, macos binaries available for downloading.<br />
+Check releases. There are windows, linux, macos binaries available for downloading.  
 Also you can download docker image from ghcr.io/MindHunter86/NexusCloner (github package registry). Read more in repository packages page.
 
 ## Build
