@@ -71,9 +71,10 @@ jobs:
         goarch: ["386", "amd64"]
         include: # I think it's true tone build for A* and M1 processes
         - goos: darwin
-          goarch: arm
-        - goos: darwin
           goarch: arm64
+        exclude:
+        - goos: darwin
+          goarch: 386
     steps:
     - uses: actions/checkout@v2
     - name: Set up Go
@@ -85,7 +86,7 @@ jobs:
     - name: Download all required imports
       run: go mod download
       ### 
-    - name: Build source code
+    - name: Build source code for ${{ matrix.goos }} ${{ matrix.goarch }}
       run: go build -ldflags="-s -w" # -o /NexusCloner.${{ matrix.goos }}-${{ matrix.goarch }}
       env:
         GOOS: ${{ matrix.goos }}
