@@ -3,7 +3,8 @@ name: NexusCloner code builder
 
 on:
   push:
-    tag: ["v*.*"]
+    tag:
+    - '*'
 
 jobs:
   parse_phase:
