@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ parse_phase ]
     steps:
-    - run: exit 1
+    - run: exit 1ctions
     - name: Get source code
       uses: actions/checkout@v2
       with:
