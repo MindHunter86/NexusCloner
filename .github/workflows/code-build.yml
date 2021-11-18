@@ -56,8 +56,7 @@ jobs:
       with:
         push: true
         context: nexuscloner
-        # tags: ghcr.io/MindHunter86/NexusCloner:${{ needs.parse_phase.outputs.build_tag }}
-        tags: ghcr.io/${{ env.GH_LWREPONAME }}:latest
+        tags: ghcr.io/${{ env.GH_LWREPONAME }}:${{ needs.parse_phase.outputs.build_tag }}
         cache-from: type=gha
         cache-to: type=gha
   binary_build_pahse:
