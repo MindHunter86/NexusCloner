@@ -1,9 +1,9 @@
 # Github Actions: NexusCloner code builder
 name: NexusCloner code builder
-on: push
-# on:
-#   push:
-#     tag: ["v*"]
+
+on:
+  push:
+    tag: ["v*.*"]
 
 jobs:
   parse_phase:
@@ -15,8 +15,7 @@ jobs:
       build_tag: ${{ steps.get-tag-from-ref.outputs.build_tag }}
     steps:
     - id: get-tag-from-ref
-      run: echo "::set-output name=build_tag::${JOB_REF#*v}"
-    - run: echo ${{ env.JOB_REF }}
+      run: echo "::set-output name=build_tag::${GITHUB_REF#refs/*/}"
     - run: |
         cat <<-EOF
           Github Actions outputs debug:
@@ -28,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ parse_phase ]
     steps:
+    - run: exit 1
     - name: Get source code
       uses: actions/checkout@v2
       with:
@@ -76,6 +76,7 @@ jobs:
         - goos: darwin
           goarch: 386
     steps:
+    - run: exit 1
     - uses: actions/checkout@v2
     - name: Set up Go
       uses: actions/setup-go@v2
@@ -85,7 +86,6 @@ jobs:
       run: sudo apt-get install -y upx
     - name: Download all required imports
       run: go mod download
-      ### 
     - name: Build source code for ${{ matrix.goos }} ${{ matrix.goarch }}
       run: go build -ldflags="-s -w" # -o /NexusCloner.${{ matrix.goos }}-${{ matrix.goarch }}
       env:
@@ -99,116 +99,3 @@ jobs:
         name: NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}
         path: ./NexusCloner*
         retention-days: 90
-
-
-# build_components:
-#   name: Build site components
-#   runs-on: ubuntu-latest
-#   needs: [ "parse_tags", "build_base" ]
-#   strategy:
-#     matrix:
-#       comps: ["public", "backend", "batch", "bot"]
-#   services:
-#     registry:
-#       image: registry:2
-#       ports: [ "5000:5000" ]
-#       volumes: [ "/tmp/.docker-registry:/var/lib/registry" ]
-#   steps:
-#   - name: Get Mytime-Dockerfiles repo
-#     uses: actions/checkout@v2
-#     with:
-#       repository: PlayMyTime/docker-mytime
-#       path: docker-mytime
-#   # here we trying to use NEW github cache backend - https://github.com/docker/buildx/pull/535
-#   - name: Set up Docker Buildx
-#     uses: docker/setup-buildx-action@v1
-#     with:
-#       version: v0.6.0-rc1
-#       driver-opts: image=moby/buildkit:v0.9.0-rc2,network=host
-#       buildkitd-flags: --debug
-#   - name: Set up GiHub cache for registry service
-#     uses: actions/cache@v2
-#     with:
-#       path: /tmp/.registry-cache
-#       key: ${{ runner.os }}-buildx-${{ github.sha }}
-#       restore-keys: |
-#         ${{ runner.os }}-buildx-
-#   - name: MindHunter's registry login
-#     uses: docker/login-action@v1
-#     with:
-#       registry: registry.is-docker.mh00p.net
-#       username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
-#       password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
-#   - name: Restore registry service data from previous job
-#     run: |
-#       docker ps
-#       cId=$(docker ps | awk '/registry/ {print $1}')
-#       echo docker cp -a "/tmp/.registry-cache/." "$cId:/var/lib/registry"
-#       docker cp -a "/tmp/.registry-cache/." "$cId:/var/lib/registry"
-#       echo ls -lah /tmp/.registry-cache
-#       ls -lah /tmp/.registry-cache
-#       echo ls -lah /tmp/.docker-registry
-#       ls -lah /tmp/.docker-registry
-#   - name: Inspect mytime-base image from localhost restored registry
-#     run: docker buildx imagetools inspect localhost:5000/mytime-base:latest
-#   - name: Build and export mytime-${{ matrix.comps }} image
-#     uses: docker/build-push-action@v2
-#     with:
-#       push: true
-#       pull: false
-#       context: docker-mytime/${{ matrix.comps }}
-#       build-args: |
-#         MYTIME_BASE_IMAGE=localhost:5000/mytime-base@${{ needs.build_base.outputs.mytime_base_dgst }}
-#       tags: registry.is-docker.mh00p.net/mytime-${{ matrix.comps }}:${{ needs.parse_tags.outputs.build_date }}-${{ github.run_number }}
-#       cache-from: type=gha
-#       cache-to: type=gha
-# deploy_3b_components:
-#   name: Deploy site 3B components
-#   runs-on: ubuntu-latest
-#   needs: [ "parse_tags", "build_components" ]
-#   strategy:
-#     max-parallel: 20
-#     matrix:
-#       comp: [ "bot1", "bot2", "bot3", "bot4", "bot5", "bot6", "bot7", "bot8" ]
-#       img: [ "mytime-bot" ]
-#       include:
-#       - comp: backend
-#         img: mytime-backend
-#       - comp: batch
-#         img: mytime-batch
-#   steps:
-#   - uses: azure/k8s-set-context@v1
-#     with:
-#       method: service-account
-#       k8s-url: ${{ secrets.K8S_CLUSTER_ENDPOINT }}
-#       k8s-secret: ${{ secrets.K8S_CLUSTER_SECRET }}
-#   - run: |
-#       kubectl set image deployment.apps/mytime-${{ matrix.comp }} \
-#         mytime-${{ matrix.comp }}=registry.is-docker.mh00p.net/${{ matrix.img }}:${{ needs.parse_tags.outputs.build_date }}-${{ github.run_number }} --record
-# deploy_1p_components:
-#   name: Deploy site 1P components
-#   runs-on: ubuntu-latest
-#   needs: [ "parse_tags", "build_components" ]
-#   steps:
-#   - uses: azure/k8s-set-context@v1
-#     with:
-#       method: service-account
-#       k8s-url: ${{ secrets.K8S_CLUSTER_ENDPOINT }}
-#       k8s-secret: ${{ secrets.K8S_CLUSTER_SECRET }}
-#     id: setcontext
-#   - run: |
-#       kubectl set image daemonset.apps/mytime-frontend-deployment \
-#         mytime-frontend=registry.is-docker.mh00p.net/mytime-public:${{ needs.parse_tags.outputs.build_date }}-${{ github.run_number }} --record
-# purge_cdn_cache:
-#   name: Flush cloudflare caches
-#   runs-on: ubuntu-latest
-#   needs: [ "deploy_1p_components" ]
-#   steps:
-#   - run: |
-#       curl -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-#         -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-#         -H "Content-Type:application/json"
-#       curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONEID }}/purge_cache" \
-#         -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
-#         -H "Content-Type:application/json" \
-#         --data '{"purge_everything":true}'
