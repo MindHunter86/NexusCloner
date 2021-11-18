@@ -4,18 +4,18 @@ Repository cloning tool for nexus
 Table of Contents:
 - [Download](#download)
 - [Build](#build)
-- [Usage examples](#usage)
-   - [One repository](#usage-one)
-   - [Two and more repositories](#usage-more)
+- [Usage examples](#usage-examples)
+   - [One repository](#one-repository)
+   - [Two and more repositories](#two-and-more-repositories)
 - [Testing](#testing)
-- [Usage page](#help)
+- [Usage page](#usage-help)
 
 
-## Download {: #download}
+## Download
 Check releases. There are windows, linux, macos binaries available for downloading.  
 Also you can download docker image from ghcr.io/MindHunter86/NexusCloner (github package registry). Read more in repository packages page.
 
-## Build {#build}
+## Build
 Base build
 ```
 go build -ldflags="-s -w" -o $GOPATH/bin/NexusCloner
@@ -31,8 +31,8 @@ After all building processes u may compress the application with [UPX](https://u
 upx -9 -k $GOPATH/bin/NexusCloner
 ```
 
-## Usage examples {#usage}
-### One repository {#usage-on}
+## Usage examples
+### One repository
 Preperare credentials for source and destination repositories if u need:
 ```
 cat <<-EOF | tee someFilePath.env
@@ -50,7 +50,7 @@ or if you prefer docker (replace *#IMAGE LINK#* with your builded docker image)
 docker run --env-file someFilePath.env #IMAGE LINK# --srcRepoUrl https://source.repository.com --srcRepoName repositoryname --dstRepoUrl https://destination.repository.com --dstRepoName repositoryname
 ```
 
-### Two and more repositories {#usage-more}
+### Two and more repositories
 Preperare credentials for source and destination repositories if u need:
 ```
 cat <<-EOF | tee someFilePath.env
@@ -72,11 +72,11 @@ Start parallel migration (replace *#THREAD COUNT#* with some int value)
   && cat someFilePath2.list | xargs -n1 | xargs -ri -P #THREAD COUNT# ./NexusCloner -l warn --srcRepoUrl https://source.repository.com --srcRepoName {} --dstRepoUrl https://destination.repository.com --dstRepoName {}
 ```
 
-## Testing {#testing}
+## Testing
 There is no test files, sorry =(
 There is only hardcore and debuging with printf() =)
 
-## Usage page {#help}
+## Usage page
 
 ```
 NAME:
