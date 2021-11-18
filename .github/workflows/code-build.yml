@@ -2,9 +2,9 @@
 name: NexusCloner code builder
 
 on:
-  push:
-    tag:
-    - '*'
+  release:
+    types:
+      - created
 
 jobs:
   parse_phase:
