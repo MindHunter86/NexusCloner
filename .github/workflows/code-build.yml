@@ -23,7 +23,7 @@ jobs:
           Triggired tag - ${{ github.ref }}
           Build Tag - ${{ steps.get-tag-from-ref.outputs.build_tag }}
         EOF
-  build_phase:
+  docker_build_phase:
     name: Build standalone binary and docker image
     runs-on: ubuntu-latest
     needs: [ parse_phase ]
@@ -60,6 +60,43 @@ jobs:
         tags: ghcr.io/${{ env.GH_LWREPONAME }}:latest
         cache-from: type=gha
         cache-to: type=gha
+  binary_build_pahse:
+    name: Build standalone binaries for linux. windows, mac OS
+    runs-on: ubuntu-latest
+    needs: [ parse_phase ]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+    - name: Install upx
+      run: apt install upx -y
+    - name: Download all required imports
+      run: go mod download
+    - name: Golang Parallel Cooking
+      strategy:
+        max-parallel: 99
+        matrix:
+          goos: ["linux", "windows", "darwin"]
+          goarch: ["386", "amd64"]
+          include: # I think it's true tone build for A* and M1 processes
+          - goos: darwin
+            goarch: arm
+          - goos: darwin
+            goarch: arm64
+      steps:
+        - name: Build source code
+          run: go build -ldflags="-s -w" # -o /NexusCloner.${{ matrix.goos }}-${{ matrix.goarch }}
+          env:
+            GOOS: ${{ matrix.goos }}
+            GOARCH: ${{ matrix.goarch }}
+        - name: Some debug, sorry
+          run: pwd ; ls -lah
+        - name: Compress binary
+          run: upx -9 -k NexusCloner*
+      
+
 
 # build_components:
 #   name: Build site components
