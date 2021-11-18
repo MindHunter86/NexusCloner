@@ -1,2 +1,2 @@
-@Library("media-pipeline-library@nexuscloner") _
+@Library("media-pipeline-library") _
 nexusClonerPipeline()
