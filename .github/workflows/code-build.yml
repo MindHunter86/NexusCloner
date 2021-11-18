@@ -71,6 +71,12 @@ jobs:
         include: # I think it's true tone build for A* and M1 processes
         - goos: darwin
           goarch: arm64
+        - goos: windows
+          goarch: 386
+          extention: .exe
+        - goos: windows
+          goarch: amd64
+          extention: .exe
         exclude:
         - goos: darwin
           goarch: 386
@@ -85,15 +91,15 @@ jobs:
     - name: Download all required imports
       run: go mod download
     - name: Build source code for ${{ matrix.goos }} ${{ matrix.goarch }}
-      run: go build -ldflags="-s -w" # -o /NexusCloner.${{ matrix.goos }}-${{ matrix.goarch }}
+      run: go build -ldflags="-s -w" -o ./NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}${{ matrix.extention }}
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
     - name: Compress binary
-      run: upx -9 -k NexusCloner*
-    - name: Upload compiled binary
-      uses: actions/upload-artifact@v2
+      run: upx -9 -k ./NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}${{ matrix.extention }}
+    - name: Upload release asset
+      uses: softprops/action-gh-release@v1
       with:
-        name: NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}
-        path: ./NexusCloner*
-        retention-days: 90
+        tag_name: ${{ needs.parse_phase.outputs.build_tag }}
+        files: ./NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}${{ matrix.extention }}
+        token: ${{ secrets.GH_PAT_RELEASES }}
