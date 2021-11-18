@@ -45,7 +45,8 @@ jobs:
       with:
         push: true
         context: nexuscloner
-        tags: ghcr.io/MindHunter86/NexusCloner:${{ needs.parse_phase.outputs.build_tag }}
+        # tags: ghcr.io/MindHunter86/NexusCloner:${{ needs.parse_phase.outputs.build_tag }}
+        tags: ghcr.io/MindHunter86/NexusCloner:latest
         cache-from: type=gha
         cache-to: type=gha
 
