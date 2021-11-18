@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ parse_phase ]
     strategy:
-      max-parallel: 99
+      max-parallel: 20 # github free plan value
       matrix:
         goos: ["linux", "windows", "darwin"]
         goarch: ["386", "amd64"]
@@ -91,11 +91,14 @@ jobs:
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
-    - name: Some debug, sorry
-      run: pwd ; ls -lah
     - name: Compress binary
       run: upx -9 -k NexusCloner*
-      
+    - name: Upload compiled binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}
+        path: ./NexusCloner*
+        retention-days: 90
 
 
 # build_components:
