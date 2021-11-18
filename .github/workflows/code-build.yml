@@ -1,6 +1,6 @@
 # Github Actions: NexusCloner code builder
 name: NexusCloner code builder
-
+on: push
 # on:
 #   push:
 #     tag: ["v*"]
