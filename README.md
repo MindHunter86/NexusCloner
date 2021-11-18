@@ -58,6 +58,10 @@ Start parallel migration (replace *#THREAD COUNT#* with some int value)
   && cat someFilePath2.list | xargs -n1 | xargs -ri -P #THREAD COUNT# ./NexusCloner -l warn --srcRepoUrl https://source.repository.com --srcRepoName {} --dstRepoUrl https://destination.repository.com --dstRepoName {}
 ```
 
+## Testing:
+There is no test files, sorry =(
+There is only hardcore and debuging with printf() =)
+
 ## Usage page
 
 ```
