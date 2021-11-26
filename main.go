@@ -72,42 +72,6 @@ func main() {
 		},
 
 		// Application options
-		cli.StringFlag{
-			Name:  "srcRepoName",
-			Usage: "Source repository `name`",
-		},
-		cli.StringFlag{
-			Name:  "srcRepoUrl",
-			Usage: "Source repository `url`",
-		},
-		cli.StringFlag{
-			Name:   "srcRepoUsername",
-			Usage:  "Credentials for source repository access",
-			EnvVar: "NCL_SRC_USERNAME",
-		},
-		cli.StringFlag{
-			Name:   "srcRepoPassword",
-			Usage:  "Credentials for source repository access",
-			EnvVar: "NCL_SRC_PASSWORD",
-		},
-		cli.StringFlag{
-			Name:  "dstRepoName",
-			Usage: "Destination repository `name`",
-		},
-		cli.StringFlag{
-			Name:  "dstRepoUrl",
-			Usage: "Destination repository `url`",
-		},
-		cli.StringFlag{
-			Name:   "dstRepoUsername",
-			Usage:  "Credentials for destination repository access",
-			EnvVar: "NCL_DST_USERNAME",
-		},
-		cli.StringFlag{
-			Name:   "dstRepoPassword",
-			Usage:  "Credentials for destination repository access",
-			EnvVar: "NCL_DST_PASSWORD",
-		},
 		cli.BoolFlag{
 			Name:  "skip-download",
 			Usage: "Skip download after finding missing assets. Flag for debugging only.",

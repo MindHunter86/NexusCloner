@@ -32,25 +32,18 @@ func NewCloner(l *zerolog.Logger) *Cloner {
 func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 	gCli = ctx
 
-	// TODO: test input values
-
 	if strings.ToLower(gCli.String("loglevel")) == "debug" {
 		gIsDebug = true
 	}
 
-	m.srcNexus = newNexus(
-		gCli.String("srcRepoUrl"),
-		gCli.String("srcRepoUsername"),
-		gCli.String("srcRepoPassword"),
-		gCli.String("srcRepoName"),
-	)
+	var e error
+	if m.srcNexus, e = newNexus().initiate(gCli.Args().Get(0)); e != nil {
+		return e
+	}
 
-	m.dstNexus = newNexus(
-		gCli.String("dstRepoUrl"),
-		gCli.String("dstRepoUsername"),
-		gCli.String("dstRepoPassword"),
-		gCli.String("dstRepoName"),
-	)
+	if m.dstNexus, e = newNexus().initiate(gCli.Args().Get(1)); e != nil {
+		return e
+	}
 
 	defer func() {
 		m.srcNexus.destruct()
@@ -58,7 +51,6 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 	}()
 
 	return m.sync()
-	// _, err := newNexus().getRepositoryAssets(gCli.String("srcRepoName"))
 }
 
 func (m *Cloner) sync() (e error) {

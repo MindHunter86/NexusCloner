@@ -15,28 +15,55 @@ import (
 
 var (
 	errNxsDwnlErrs = errors.New("Download process has not successfully finished. Check logs and restart program. Also u can use --skip-download-errors flag.")
+	errInvGivArg   = errors.New("There is some problems with parsing you repository endpoint. Make sure, that you give correct data.")
 )
 
 type nexus struct {
-	url              string
-	username         string
-	password         string
-	repositoryName   string
+	endpoint         *url.URL
+	repository, path string
 	assetsCollection []*NexusAsset
 
 	api      *nexusApi
 	tempPath string
 }
 
-func newNexus(ur, us, p, rn string) *nexus {
-	api := newNexusApi(us, p)
+func newNexus() *nexus {
 	return &nexus{
-		url:            ur,
-		username:       us,
-		password:       p,
-		repositoryName: rn,
-		api:            api,
+		api: newNexusApi(),
 	}
+}
+
+// schema: https://username:password@nexus.example.com:3131/test-repository/com/example/components/v1.2.....
+func (m *nexus) initiate(arg string) (*nexus, error) {
+	var e error
+	m.endpoint, e = url.Parse(arg)
+	if e != nil {
+		return nil, e
+	}
+
+	// get repository name and path for futher removing from url
+	buf := strings.SplitN(m.endpoint.EscapedPath(), "/", 2)
+	m.repository, m.path = buf[0], buf[1]
+
+	gLog.Debug().Str("url", m.endpoint.Redacted()).Msg("parsed url")
+	gLog.Debug().Str("encpath", m.endpoint.EscapedPath()).Msg("truncate url path")
+
+	m.endpoint.RawPath = ""
+	m.endpoint.RawQuery = ""
+
+	gLog.Debug().Str("repo", m.repository).Str("path", m.path).Msg("testing given repo/path")
+
+	if len(m.repository) == 0 || len(m.path) == 0 {
+		return nil, errInvGivArg
+	}
+
+	// check for user+password
+	uPass, _ := m.endpoint.User.Password()
+	if len(m.endpoint.User.Username()) == 0 || len(uPass) == 0 {
+		gLog.Warn().Msg("There is empty credentials for the repository. I'll hope, it's okay.")
+	}
+
+	return m, nil
 }
 
 func (m *nexus) destruct() {
@@ -49,8 +76,7 @@ func (m *nexus) destruct() {
 
 func (m *nexus) getRepositoryStatus() (e error) {
 	var rrl *url.URL
-	if rrl, e = url.Parse(m.url + "/service/rest/v1/status"); e != nil {
-		gLog.Warn().Str("url", m.url).Err(e).Msg("Abnormal status from repository")
+	if rrl, e = m.endpoint.Parse("/service/rest/v1/status"); e != nil {
 		return
 	}
 
@@ -75,12 +101,12 @@ func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
 	// }
 
 	var rrl *url.URL
-	if rrl, e = url.Parse(m.url + "/service/rest/v1/assets"); e != nil {
+	if rrl, e = m.endpoint.Parse("/service/rest/v1/assets"); e != nil {
 		return
 	}
 
 	var rgs = &url.Values{}
-	rgs.Set("repository", m.repositoryName)
+	rgs.Set("repository", m.repository)
 	rrl.RawQuery = rgs.Encode()
 
 	var rsp *NexusAssetsCollection
@@ -230,12 +256,12 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 		}
 
 		var rrl *url.URL
-		if rrl, e = url.Parse(m.url + "/service/rest/v1/components"); e != nil {
+		if rrl, e = m.endpoint.Parse("/service/rest/v1/components"); e != nil {
 			return
 		}
 
 		var rgs = &url.Values{}
-		rgs.Set("repository", m.repositoryName)
+		rgs.Set("repository", m.repository)
 		rrl.RawQuery = rgs.Encode()
 
 		if e = m.api.putNexusFile(rrl.String(), body, contentType); e != nil {

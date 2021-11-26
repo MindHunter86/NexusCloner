@@ -14,8 +14,6 @@ import (
 
 type nexusApi struct {
 	*http.Client
-
-	username, password string
 }
 
 var (
@@ -24,7 +22,7 @@ var (
 	nxsErrRq404       = errors.New("Could not complete the request because of Nexus api respond 404 error!")
 )
 
-func newNexusApi(u, p string) *nexusApi {
+func newNexusApi() *nexusApi {
 	return &nexusApi{
 		Client: &http.Client{
 			Timeout: gCli.Duration("http-client-timeout"),
@@ -35,15 +33,13 @@ func newNexusApi(u, p string) *nexusApi {
 				DisableCompression: false,
 			},
 		},
-		username: u,
-		password: p,
 	}
 }
 
 func (m *nexusApi) authorizeNexusRequest(r *http.Request) {
-	if len(m.username) > 0 && len(m.password) > 0 {
-		r.SetBasicAuth(m.username, m.password)
-	}
+	// if len(m.username) > 0 && len(m.password) > 0 {
+	// 	r.SetBasicAuth(m.username, m.password)
+	// }
 
 	r.Header.Set("Accept", "application/json")
 	r.Header.Set("Content-Type", "application/json; charset=UTF-8")
