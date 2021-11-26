@@ -91,7 +91,7 @@ jobs:
     - name: Download all required imports
       run: go mod download
     - name: Build source code for ${{ matrix.goos }} ${{ matrix.goarch }}
-      run: go build -ldflags="-s -w" -o ./NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}${{ matrix.extention }}
+      run: go build -ldflags="-s -w -X 'main.version=${{ needs.parse_phase.outputs.build_tag }}'" -o ./NexusCloner-${{ matrix.goos }}.${{ matrix.goarch }}${{ matrix.extention }}
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}

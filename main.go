@@ -16,8 +16,7 @@ import (
 )
 
 var log zerolog.Logger
-
-const version = "devel"
+var version = "devel" // -ldflags="-X 'main.version=X.X.X'"
 
 func main() {
 	app := cli.NewApp()
