@@ -17,10 +17,12 @@ import (
 
 var log zerolog.Logger
 
+const version = "devel"
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "NexusCloner"
-	app.Version = "1.0"
+	app.Version = version
 	app.Compiled = time.Now()
 	app.Authors = []cli.Author{
 		{
