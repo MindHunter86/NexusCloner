@@ -119,6 +119,11 @@ func main() {
 			Name:  "skip-upload",
 			Usage: "Skip upload after downloading missing assets. Flag for debugging only.",
 		},
+		cli.StringFlag{
+			Name:  "path-filter",
+			Usage: "Regexp value with `path` for syncing.",
+			Value: ".*",
+		},
 	}
 
 	log := zerolog.New(zerolog.ConsoleWriter{

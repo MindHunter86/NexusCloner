@@ -32,6 +32,8 @@ func NewCloner(l *zerolog.Logger) *Cloner {
 func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 	gCli = ctx
 
+	// TODO: test input values
+
 	if strings.ToLower(gCli.String("loglevel")) == "debug" {
 		gIsDebug = true
 	}

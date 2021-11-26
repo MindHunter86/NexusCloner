@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/url"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 )
@@ -97,7 +98,21 @@ func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
 			return nil, errors.New("Internal error, assets are empty after api parsing")
 		}
 
-		assets = append(assets, rsp.Items...)
+		var r *regexp.Regexp
+		if r, e = regexp.Compile(gCli.String("path-filter")); e != nil {
+			return
+		}
+
+		for _, asset := range rsp.Items {
+			if r.MatchString(asset.Path) {
+				gLog.Debug().Str("path", asset.Path).Msg("Asset path matched!")
+				assets = append(assets, asset)
+			} else {
+				gLog.Debug().Str("path", asset.Path).Msg("Asset path NOT matched!")
+			}
+		}
+
+		// assets = append(assets, rsp.Items...)
 		gLog.Info().Int("buffer", len(assets)).Int("assets", len(rsp.Items)).Msg("successfully parsed assets")
 
 		if len(rsp.ContinuationToken) == 0 {
