@@ -42,8 +42,8 @@ func (m *nexus) initiate(arg string) (*nexus, error) {
 	}
 
 	// get repository name and path for futher removing from url
-	buf := strings.SplitN(m.endpoint.EscapedPath(), "/", 2)
-	m.repository, m.path = buf[0], buf[1]
+	buf := strings.Split(m.endpoint.EscapedPath(), "/")
+	m.repository, m.path = buf[1], strings.Join(buf[2:], "/")
 
 	gLog.Debug().Str("url", m.endpoint.Redacted()).Msg("parsed url")
 	gLog.Debug().Str("encpath", m.endpoint.EscapedPath()).Msg("truncate url path")
@@ -53,8 +53,12 @@ func (m *nexus) initiate(arg string) (*nexus, error) {
 
 	gLog.Debug().Str("repo", m.repository).Str("path", m.path).Msg("testing given repo/path")
 
-	if len(m.repository) == 0 || len(m.path) == 0 {
+	if len(m.repository) == 0 {
 		return nil, errInvGivArg
+	}
+
+	if len(m.path) == 0 {
+		m.path = gCli.String("path-filter")
 	}
 
 	// check for user+password
@@ -125,7 +129,7 @@ func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
 		}
 
 		var r *regexp.Regexp
-		if r, e = regexp.Compile(gCli.String("path-filter")); e != nil {
+		if r, e = regexp.Compile(m.path); e != nil {
 			return
 		}
 
