@@ -23,11 +23,6 @@ Base build
 go build -ldflags="-s -w" -o $GOPATH/bin/NexusCloner
 ```
 
-Build application with syslog support (temporary marked as legacy)
-```
-go build -ldflags="-s -w" -tags syslog $GOPATH/bin/NexusCloner
-```
-
 After all building processes u may compress the application with [UPX](https://upx.github.io/)
 ```
 upx -9 -k $GOPATH/bin/NexusCloner
@@ -48,7 +43,7 @@ If your repositories require authentication, you can use user:pass data in URL f
 If your repositories have selfsign certificate, please, use parameter **--http-client-insecure**
   
 If your repositories are slow, or you have big files, that requires long downloading use **--http-client-timeout**.
-  
+
 
 ### Two and more repositories
 For the first, you need to prepare file with repository names for migration.
@@ -64,8 +59,7 @@ repository_name5
 EOF
 ```
 
-
-After that, you can use these small hack for multithreaded sync:
+After that, you can use these small hack for multi-thread sync:
 ```
 cat repositories.txt | xargs -n1 | xargs -ri -P4 https://repo1.example.com/{} https://repo2.example.com/{}
 ```
@@ -74,7 +68,7 @@ cat repositories.txt | xargs -n1 | xargs -ri -P4 https://repo1.example.com/{} ht
 
 
 ### Path filtering
-Sometimes you need clone repository particulary. There is **--path-filter** for this tasks. The variable is reqiure valid regexp for futher filtering.
+Sometimes you need clone repository particularly. There is **--path-filter** for this tasks. The variable is requires valid regexp for further filtering.
   
 Example. You have some repository with tree of artifacts:
 ```
