@@ -30,7 +30,7 @@ upx -9 -k $GOPATH/bin/NexusCloner
 
 ## Usage examples
 ### One repository
-Simple task - clone *reponame* from *repo1.example.com* to *repo2.example.com*:
+Simple task - clone *reponame* from *nexus1.example.com* to *nexus2.example.com*:
 ```
 ./NexusCloner https://nexus1.example.com/reponame https://nexus2.example.com/reponame
 ```
