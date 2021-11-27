@@ -46,11 +46,13 @@ If your repositories require authentication, you can use user:pass data in URL f
 ```
 
 If your repositories have selfsign certificate, please, use parameter **--http-client-insecure**
+  
 If your repositories are slow, or you have big files, that requires long downloading use **--http-client-timeout**.
 
 
 ### Two and more repositories
 For the first, you need to prepare file with repository names for migration.
+  
 For example:
 ```
 cat <<-EOF | tee repositories.txt
@@ -62,15 +64,18 @@ repository_name5
 EOF
 ```
 
+
 After that, you can use these small hack for multithreaded sync:
 ```
 cat repositories.txt | xargs -n1 | xargs -ri -P4 https://repo1.example.com/{} https://repo2.example.com/{}
 ```
+  
 **-P4** in example above is *thread count*. Modify this argument if you need.
 
 
 ### Path filtering
 Sometimes you need clone repository particulary. There is **--path-filter** for this tasks. The variable is reqiure valid regexp for futher filtering.
+  
 Example. You have some repository with tree of artifacts:
 ```
 com/example/internal/artifact1
@@ -92,7 +97,7 @@ Or you need sync *ONLY* artifacts from public path:
 ```
 ./NexusCloner --path-filter "com/example/public/artifacts.*" https://repo1.example.com/reponame https://repo2.example.com/reponame
 ```
-
+  
 With regexp you can do any magic.
 
 
