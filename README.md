@@ -32,12 +32,12 @@ upx -9 -k $GOPATH/bin/NexusCloner
 ### One repository
 Simple task - clone *reponame* from *repo1.example.com* to *repo2.example.com*:
 ```
-./NexusCloner https://repo1.example.com/reponame https://repo2.example.com/reponame
+./NexusCloner https://nexus1.example.com/reponame https://nexus2.example.com/reponame
 ```
 
 If your repositories require authentication, you can use user:pass data in URL format:
 ```
-./NexusCloner https://username:password@repo1.example.com/reponame https://username:password@repo2.example.com/reponame
+./NexusCloner https://username:password@nexus1.example.com/reponame https://username:password@nexus2.example.com/reponame
 ```
 
 If your repositories have selfsign certificate, please, use parameter **--http-client-insecure**
@@ -61,7 +61,7 @@ EOF
 
 After that, you can use these small hack for multi-thread sync:
 ```
-cat repositories.txt | xargs -n1 | xargs -ri -P4 https://repo1.example.com/{} https://repo2.example.com/{}
+cat repositories.txt | xargs -n1 | xargs -ri -P4 https://nexus1.example.com/{} https://nexus2.example.com/{}
 ```
   
 **-P4** in example above is *thread count*. Modify this argument if you need.
@@ -84,12 +84,12 @@ com/example/public/other3
 
 And you need sync *ONLY* public data. Your command will be:
 ```
-./NexusCloner --path-filter "com/example/public" https://repo1.example.com/reponame https://repo2.example.com/reponame
+./NexusCloner --path-filter "com/example/public" https://nexus1.example.com/reponame https://nexus2.example.com/reponame
 ```
 
 Or you need sync *ONLY* artifacts from public path:
 ```
-./NexusCloner --path-filter "com/example/public/artifacts.*" https://repo1.example.com/reponame https://repo2.example.com/reponame
+./NexusCloner --path-filter "com/example/public/artifacts.*" https://nexus1.example.com/reponame https://nexus2.example.com/reponame
 ```
   
 With regexp you can do any magic.
