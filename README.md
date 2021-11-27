@@ -48,7 +48,7 @@ If your repositories require authentication, you can use user:pass data in URL f
 If your repositories have selfsign certificate, please, use parameter **--http-client-insecure**
   
 If your repositories are slow, or you have big files, that requires long downloading use **--http-client-timeout**.
-
+  
 
 ### Two and more repositories
 For the first, you need to prepare file with repository names for migration.
