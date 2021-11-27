@@ -7,6 +7,7 @@ Repository cloning tool for nexus
 - [Usage examples](#usage-examples)
    - [One repository](#one-repository)
    - [Two and more repositories](#two-and-more-repositories)
+   - [Path filtering](#path-filtering)
 - [Testing](#testing)
 - [Usage page](#usage-page)
 
@@ -34,48 +35,69 @@ upx -9 -k $GOPATH/bin/NexusCloner
 
 ## Usage examples
 ### One repository
-Preperare credentials for source and destination repositories if u need:
+Simple task - clone *reponame* from *repo1.example.com* to *repo2.example.com*:
 ```
-cat <<-EOF | tee someFilePath.env
-NCL_DST_USERNAME=login
-NCL_SRC_PASSWORD=password
-EOF
+./NexusCloner https://repo1.example.com/reponame https://repo2.example.com/reponame
 ```
 
-Start repository migrations:
+If your repositories require authentication, you can use user:pass data in URL format:
 ```
-. someFilePath.env ; ./NexusCloner --srcRepoUrl https://source.repository.com --srcRepoName repositoryname --dstRepoUrl https://destination.repository.com --dstRepoName repositoryname
+./NexusCloner https://username:password@repo1.example.com/reponame https://username:password@repo2.example.com/reponame
 ```
-or if you prefer docker (replace *#IMAGE LINK#* with your builded docker image)
-```
-docker run --env-file someFilePath.env #IMAGE LINK# --srcRepoUrl https://source.repository.com --srcRepoName repositoryname --dstRepoUrl https://destination.repository.com --dstRepoName repositoryname
-```
+
+If your repositories have selfsign certificate, please, use parameter **--http-client-insecure**
+If your repositories are slow, or you have big files, that requires long downloading use **--http-client-timeout**.
+
 
 ### Two and more repositories
-Preperare credentials for source and destination repositories if u need:
+For the first, you need to prepare file with repository names for migration.
+For example:
 ```
-cat <<-EOF | tee someFilePath.env
-NCL_DST_USERNAME=login
-NCL_SRC_PASSWORD=password
+cat <<-EOF | tee repositories.txt
+repository_name1
+repository_name2
+repository_name3
+repository_name4
+repository_name5
 EOF
 ```
-Prepare file with repository names for migration
+
+After that, you can use these small hack for multithreaded sync:
 ```
-cat <<-EOF | tee someFilePath2.list
-repoA
-repoB
-repo...
-EOF
+cat repositories.txt | xargs -n1 | xargs -ri -P4 https://repo1.example.com/{} https://repo2.example.com/{}
 ```
-Start parallel migration (replace *#THREAD COUNT#* with some int value)
+**-P4** in example above is *thread count*. Modify this argument if you need.
+
+
+### Path filtering
+Sometimes you need clone repository particulary. There is **--path-filter** for this tasks. The variable is reqiure valid regexp for futher filtering.
+Example. You have some repository with tree of artifacts:
 ```
-. someFilePath.env \
-  && cat someFilePath2.list | xargs -n1 | xargs -ri -P #THREAD COUNT# ./NexusCloner -l warn --srcRepoUrl https://source.repository.com --srcRepoName {} --dstRepoUrl https://destination.repository.com --dstRepoName {}
+com/example/internal/artifact1
+com/example/internal/artifact2
+com/example/public/artifact1
+com/example/public/artifact2
+com/example/public/artifact3
+com/example/public/other1
+com/example/public/other2
+com/example/public/other3
 ```
+
+And you need sync *ONLY* public data. Your command will be:
+```
+./NexusCloner --path-filter "com/example/public" https://repo1.example.com/reponame https://repo2.example.com/reponame
+```
+
+Or you need sync *ONLY* artifacts from public path:
+```
+./NexusCloner --path-filter "com/example/public/artifacts.*" https://repo1.example.com/reponame https://repo2.example.com/reponame
+```
+
+With regexp you can do any magic.
+
 
 ## Testing
 There is no test files, sorry =(
-There is only hardcore and debuging with printf() =)
 
 ## Usage page
 
@@ -84,10 +106,7 @@ NAME:
    NexusCloner - Repository cloning tool for nexus
 
 USAGE:
-   NexusCloner [global options] command [command options] [arguments...]
-
-VERSION:
-   1.0
+   main [global options] command [command options] [arguments...]
 
 AUTHOR:
    Vadimka K. <admin@vkom.cc>
@@ -96,24 +115,18 @@ COMMANDS:
      help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --loglevel level, -l level    log level (debug, info, warn, error, fatal, panic) (default: "info")
-   --http-client-timeout value   internal HTTP client timeout (ms) (default: 5s)
-   --http-client-insecure        disable TLS certificate verification
-   --temp-path-prefix directory  Define prefix for temporary directory. If not defined, UNIX or WIN default will be used.
-   --temp-path-save              Flag for saving temp path content before program close. Flag for debugging only.
-   --srcRepoName name            Source repository name
-   --srcRepoUrl url              Source repository url
-   --srcRepoUsername value       Credentials for source repository access [$NCL_SRC_USERNAME]
-   --srcRepoPassword value       Credentials for source repository access [$NCL_SRC_PASSWORD]
-   --dstRepoName name            Destination repository name
-   --dstRepoUrl url              Destination repository url
-   --dstRepoUsername value       Credentials for destination repository access [$NCL_DST_USERNAME]
-   --dstRepoPassword value       Credentials for destination repository access [$NCL_DST_PASSWORD]
-   --skip-download               Skip download after finding missing assets. Flag for debugging only.
-   --skip-download-errors        Continue synchronization process if missing assets download detected
-   --skip-upload                 Skip upload after downloading missing assets. Flag for debugging only.
-   --help, -h                    show help
-   --version, -v                 print the version
+   --verbose LEVEL, -v LEVEL      Verbose LEVEL (value from 5(debug) to 0(panic) and -1 for log disabling(quite mode)) (default: 4)
+   --quite, -q                    Flag is equivalent to verbose -1
+   --http-client-timeout TIMEOUT  Internal HTTP client connection TIMEOUT (format: 1000ms, 1s) (default: 10s)
+   --http-client-insecure         Flag for TLS certificate verification disabling
+   --temp-path-prefix directory   Define prefix for temporary directory. If not defined, UNIX or WIN default will be used.
+   --temp-path-save               Flag for saving temp path content before program close. Flag for debugging only.
+   --skip-download                Skip download after finding missing assets. Flag for debugging only.
+   --skip-download-errors         Continue synchronization process if missing assets download detected
+   --skip-upload                  Skip upload after downloading missing assets. Flag for debugging only.
+   --path-filter path             Regexp value with path for syncing. (default: ".*")
+   --help, -h                     show help
+   --version, -V                  print the version
 
 COPYRIGHT:
    (c) 2021 mindhunter86
