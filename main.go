@@ -41,7 +41,7 @@ func main() {
 		// Some common options
 		cli.IntFlag{
 			Name:  "verbose, v",
-			Value: 5,
+			Value: 4,
 			Usage: "Verbose `LEVEL` (value from 5(debug) to 0(panic) and -1 for log disabling(quite mode))",
 		},
 		cli.BoolFlag{

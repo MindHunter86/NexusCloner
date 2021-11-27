@@ -143,7 +143,7 @@ func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
 		}
 
 		// assets = append(assets, rsp.Items...)
-		gLog.Info().Int("buffer", len(assets)).Int("assets", len(rsp.Items)).Msg("successfully parsed assets")
+		gLog.Info().Int("total_matched_by_path", len(assets)).Int("step_parsed", len(rsp.Items)).Msg("Successfully parsed page")
 
 		if len(rsp.ContinuationToken) == 0 {
 			break
