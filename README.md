@@ -9,6 +9,8 @@ Repository cloning tool for nexus
    - [Two and more repositories](#two-and-more-repositories)
    - [Path filtering](#path-filtering)
 - [Testing](#testing)
+- [Known issues](#known-ussues)
+- [Supported nexus versions](#suported-nexus-versions)
 - [Usage page](#usage-page)
 
 ----
@@ -100,6 +102,8 @@ There is no test files, sorry =(
 
 ## Known issues
 
+## Suported nexus versions
+Tested on OSS 3.30.1-01 and OSS 3.16.1-02
 
 ## Usage page
 
