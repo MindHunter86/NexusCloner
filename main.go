@@ -89,6 +89,15 @@ func main() {
 			Usage: "Regexp value with `path` for syncing.",
 			Value: ".*",
 		},
+		cli.BoolFlag{
+			Name:  "use-rpc",
+			Usage: "Use RPC protocol for assets collection on source nexus server. Unstable, testing feature.",
+		},
+		cli.StringFlag{
+			Name:  "rpc-endpoint",
+			Usage: "Define RPC endpoint for assets collection",
+			Value: "/service/extdirect",
+		},
 	}
 
 	log := zerolog.New(zerolog.ConsoleWriter{

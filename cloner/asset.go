@@ -7,6 +7,22 @@ import (
 	"strings"
 )
 
+type NexusAsset2 interface {
+	getHumanReadbleName() string
+
+	downloadAsset() error
+	isFileExists(string) error
+
+	getBinaryFile() (*os.File, error)
+	getTemporaryFile(string) (*os.File, error)
+
+	getDownloadUrl() (string, error)
+	getExtension() (string, error)
+	getGroupId() (string, error)
+	getArtifactId() (string, error)
+	getVersion() (string, error)
+}
+
 type (
 	NexusAssetsCollection struct {
 		Items             []*NexusAsset `json:"items,omitempty"`
