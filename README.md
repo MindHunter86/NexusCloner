@@ -9,7 +9,7 @@ Repository cloning tool for nexus
    - [Two and more repositories](#two-and-more-repositories)
    - [Path filtering](#path-filtering)
 - [Testing](#testing)
-- [Known issues](#known-ussues)
+- [Known issues](#known-issues)
 - [Supported nexus versions](#suported-nexus-versions)
 - [Usage page](#usage-page)
 
