@@ -238,7 +238,13 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 
 		gLog.Debug().Msg("asset - " + asset.getHumanReadbleName())
 
-		if len(asset.Maven2.Extension) == 0 {
+		// TODO refactor!
+		if asset.Maven2 != nil {
+			if len(asset.Maven2.Extension) == 0 {
+				gLog.Warn().Msgf("The file %s has strange metadata. Check it please and try again later.", asset.getHumanReadbleName())
+				continue
+			}
+		} else {
 			gLog.Warn().Msgf("The file %s has strange metadata. Check it please and try again later.", asset.getHumanReadbleName())
 			continue
 		}

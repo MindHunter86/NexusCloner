@@ -98,6 +98,9 @@ With regexp you can do any magic.
 ## Testing
 There is no test files, sorry =(
 
+## Known issues
+
+
 ## Usage page
 
 ```
