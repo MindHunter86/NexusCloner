@@ -105,7 +105,7 @@ func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
 	// }
 
 	var rrl *url.URL
-	if rrl, e = m.endpoint.Parse("/service/rest/v1/assets"); e != nil {
+	if rrl, e = m.endpoint.Parse("/service/rest/v1/search/assets"); e != nil {
 		return
 	}
 
