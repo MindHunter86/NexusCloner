@@ -7,10 +7,14 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"sync"
 )
 
 type rpcClient struct {
 	*http.Client
+
+	mu         sync.RWMutex
+	requestTid int
 }
 
 func newRpcClient() *rpcClient {
@@ -24,7 +28,38 @@ func newRpcClient() *rpcClient {
 				DisableCompression: false,
 			},
 		},
+		requestTid: 0,
 	}
+}
+
+func (m *rpcClient) newRpcRequest(method string, data *map[string]string) *rpcRequest {
+	m.mu.Lock() // avoid race cond
+	tid := m.requestTid + 1
+	m.requestTid = tid
+	m.mu.Unlock()
+
+	return &rpcRequest{
+		Action: "coreui_Browse",
+		Tid:    tid,
+		Type:   "rpc",
+		Method: method,
+		Data:   *data,
+	}
+}
+
+func (m *rpcClient) newRpcJsonRequest(method string, data interface{}) ([]byte, error) {
+	m.mu.Lock() // avoid race cond
+	tid := m.requestTid + 1
+	m.requestTid = tid
+	m.mu.Unlock()
+
+	return json.Marshal(&rpcRequest{
+		Action: "coreui_Browse",
+		Type:   "rpc",
+		Tid:    tid,
+		Method: method,
+		Data:   data,
+	})
 }
 
 func (m *rpcClient) parseResponsePayload(rsp *io.ReadCloser, rspPayload interface{}) (e error) {
@@ -36,9 +71,9 @@ func (m *rpcClient) parseResponsePayload(rsp *io.ReadCloser, rspPayload interfac
 	return json.Unmarshal(data, &rspPayload)
 }
 
-func (m *rpcClient) postRpcRequest(url string, body *bytes.Buffer, rspPayload interface{}) (e error) {
+func (m *rpcClient) postRpcRequest(url string, reqPayload []byte, rspPayload interface{}) (e error) {
 	var req *http.Request
-	if req, e = http.NewRequest("POST", url, body); e != nil {
+	if req, e = http.NewRequest("POST", url, bytes.NewBuffer(reqPayload)); e != nil {
 		return
 	}
 

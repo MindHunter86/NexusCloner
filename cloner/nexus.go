@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 var (
@@ -21,10 +22,12 @@ var (
 type nexus struct {
 	endpoint         *url.URL
 	repository, path string
-	assetsCollection []*NexusAsset
 
 	api      *nexusApi
 	tempPath string
+
+	mu               sync.RWMutex
+	assetsCollection []NexusAsset2
 }
 
 func newNexus() *nexus {
@@ -90,6 +93,109 @@ func (m *nexus) getRepositoryStatus() (e error) {
 			return nxsErrRspUnknown
 		}
 		gLog.Error().Err(e).Msg("There is some troubles with repository availability")
+		return
+	}
+
+	return
+}
+
+func (m *nexus) getParsingJobRPC(payload map[string]string) (e error) {
+	return
+}
+
+func (m *nexus) getRepositoryAssetsRPC(path string) (e error) {
+	var rpcPayload = map[string]string{
+		"node":           path,
+		"repositoryName": m.repository,
+	}
+
+	var rpcResponse *rpcRsp
+	if rpcResponse, e = m.getRepositoryDataRPC("read", rpcPayload); e != nil {
+		return
+	}
+
+	return m.parseRepositoryAssetsRPC(rpcResponse)
+}
+
+func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
+	if !rsp.Result.Success {
+		gLog.Warn().Msg("There is some errors in parsing RPC response. Api said that Result.Success is false!")
+	}
+
+	for _, obj := range rsp.Result.Data {
+		switch obj["type"].(string) {
+		case "folder":
+			gQueue <- &job{
+				action:  jobActParseAsset,
+				payload: []interface{}{m, obj["id"].(string)},
+			}
+		case "component":
+			continue
+		case "asset":
+			asset := newRpcAsset(obj)
+			m.mu.Lock()
+			m.assetsCollection = append(m.assetsCollection, asset)
+			m.mu.Unlock()
+		}
+	}
+
+	return
+}
+
+/*func (m *ICQApi) parseChatMessagesResponse(chatId string, messages []*getHistoryRspResultMessage) (lastMsgId uint64, e error) {
+
+	// if no messages - exit
+	if len(messages) == 0 {
+		return 0, e
+	}
+
+	lastMsgId = messages[len(messages)-1].MsgId
+	for _, v := range messages {
+		gDBQueue <- &job{
+			action:  jobActCustomFunc,
+			payload: []interface{}{v},
+			payloadFunc: func(args []interface{}) error {
+				var message = args[0].(*getHistoryRspResultMessage)
+				return gMongoDB.UpdateOne("chats", bson.M{
+					"aimId": chatId,
+				}, bson.M{
+					"$push": bson.M{
+						"messages": &mongodb.CollectionChatsMessage{
+							MsgId:  message.MsgId,
+							Time:   time.Unix(message.Time, 0),
+							Wid:    message.Wid,
+							Sender: message.Chat.Sender,
+							Text:   message.Text,
+						},
+					},
+				})
+			},
+		}
+	}
+
+	return lastMsgId, e
+}*/
+
+func (m *nexus) getRepositoryDataRPC(method string, data ...map[string]string) (rsp *rpcRsp, e error) {
+	var payload []byte
+
+	switch method {
+	case "read":
+		if payload, e = gRpc.newRpcJsonRequest(method, data); e != nil {
+			return
+		}
+	default:
+		if payload, e = gRpc.newRpcJsonRequest(method, data[0]); e != nil {
+			return
+		}
+	}
+
+	var rrl *url.URL
+	if rrl, e = m.endpoint.Parse(gCli.String("rpc-endpoint")); e != nil {
+		return
+	}
+
+	if e = gRpc.postRpcRequest(rrl.String(), payload, &rsp); e != nil {
 		return
 	}
 

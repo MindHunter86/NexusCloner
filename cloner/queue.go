@@ -4,6 +4,7 @@ import "sync"
 
 const (
 	jobActParseAsset = uint8(iota)
+	jobActGetAsset
 	jobActDownloadAsset
 	jobActUploadAsset
 	jobActCustomFunc
@@ -148,17 +149,22 @@ func (m *worker) spawn() {
 func (m *worker) doJob(j *job) {
 	switch j.action {
 	case jobActParseAsset:
+		nexus := j.payload[0].(*nexus)
+		if e := nexus.getRepositoryAssetsRPC(j.payload[1].(string)); e != nil {
+			m.errors <- j.newError(e)
+		}
+	case jobActGetAsset:
 	case jobActDownloadAsset:
 	case jobActUploadAsset:
-	case jobActCustomFunc:
-		if j.payloadFunc != nil {
-			if e := j.payloadFunc(j.payload); e != nil {
-				gLog.Error().Err(e).Msg("There is some troubles in task exec!")
-				m.errors <- j.newError(e)
-			}
-		} else {
-			gLog.Error().Msg("Given job has invalid status! Skipping...")
-		}
+		// case jobActCustomFunc:
+		// 	if j.payloadFunc != nil {
+		// 		if e := j.payloadFunc(j.payload); e != nil {
+		// 			gLog.Error().Err(e).Msg("There is some troubles in task exec!")
+		// 			m.errors <- j.newError(e)
+		// 		}
+		// 	} else {
+		// 		gLog.Error().Msg("Given job has invalid status! Skipping...")
+		// 	}
 	}
 }
 

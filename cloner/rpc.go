@@ -8,17 +8,28 @@ import (
 )
 
 type (
-	rcpRsp struct {
+	rpcRsp struct {
 		Tid    int           `json:"tid,omitempty"`
 		Action string        `json:"action,omitempty"`
 		Method string        `json:"method,omitempty"`
 		Result *rpcRspResult `json:"result,omitempty"`
 	}
 	rpcRspResult struct {
-		Success bool      `json:"success,omitempty"`
-		Data    *rpcAsset `json:"data,omitempty"`
+		Success bool                     `json:"success,omitempty"`
+		Data    []map[string]interface{} `json:"data,omitempty"` // dynamic field in struct !!
+	}
+	rpcTree struct {
+		Id   string `json:"id,omitempty"`
+		Text string `json:"text,omitempty"`
+		Type string `json:"type,omitempty"`
+	}
+	rpcComponent struct {
+		Id     string `json:"id,omitempty"`
+		Name   string `json:"text,omitempty"`
+		Format string `json:"type,omitempty"`
 	}
 	rpcAsset struct {
+		Id          string         `json:"id,omitempty"`
 		Name        string         `json:"name,omitempty"`
 		Format      string         `json:"format,omitempty"`
 		Attributes  *rpcAssetAttrs `json:"attributes,omitempty"`
@@ -44,20 +55,23 @@ type (
 
 type (
 	rpcRequest struct {
-		Action string          `json:"action"`
-		Data   *rpcRequestData `json:"data"`
-		Method string          `json:"method"`
-		Tid    int             `json:"tid"`
-		Type   string          `json:"type"`
-	}
-	rpcRequestData struct {
-		D1 string `json:"0"`
-		D2 string `json:"1"`
+		Action string      `json:"action"`
+		Data   interface{} `json:"data"`
+		Method string      `json:"method"`
+		Tid    int         `json:"tid"`
+		Type   string      `json:"type"`
 	}
 )
 
 var errRpcAssetPanic = errors.New("Panic caught in the asset! The asset was invalid and will be skipped.")
 var errRpcAssetEmpty = errors.New("The asset is invalid because of empty or has empty attributes!")
+
+func newRpcAsset(rpcObject map[string]interface{}) *rpcAsset {
+	return &rpcAsset{
+		Id:   rpcObject["assetId"].(string),
+		Name: rpcObject["id"].(string),
+	}
+}
 
 func (m *rpcAsset) catchPanic(err *error) {
 	if recover() != nil {

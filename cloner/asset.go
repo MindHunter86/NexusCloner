@@ -10,10 +10,10 @@ import (
 type NexusAsset2 interface {
 	getHumanReadbleName() string
 
-	downloadAsset() error
-	isFileExists(string) error
+	// downloadAsset() error
+	isFileExists(string) (*os.File, error)
 
-	getBinaryFile() (*os.File, error)
+	// getBinaryFile() (*os.File, error)
 	getTemporaryFile(string) (*os.File, error)
 
 	getDownloadUrl() (string, error)

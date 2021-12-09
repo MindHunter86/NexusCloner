@@ -17,6 +17,8 @@ var (
 	gLog     *zerolog.Logger
 	gCli     *cli.Context
 	gApi     *nexusApi
+	gRpc     *rpcClient
+	gQueue   chan *job
 	gIsDebug bool
 )
 
@@ -43,6 +45,10 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 
 	if m.dstNexus, e = newNexus().initiate(gCli.Args().Get(1)); e != nil {
 		return e
+	}
+
+	if gCli.Bool("use-rpc") {
+		gRpc = newRpcClient()
 	}
 
 	defer func() {
