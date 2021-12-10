@@ -49,13 +49,13 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 		return e
 	}
 
-	// if m.dstNexus, e = newNexus().initiate(gCli.Args().Get(1)); e != nil {
-	// 	return e
-	// }
+	if m.dstNexus, e = newNexus().initiate(gCli.Args().Get(1)); e != nil {
+		return e
+	}
 
 	defer func() {
 		m.srcNexus.destruct()
-		// m.dstNexus.destruct()
+		m.dstNexus.destruct()
 	}()
 
 	// FEATURE QUEUE
@@ -84,7 +84,12 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 	go func() {
 		wg.Add(1)
 		defer wg.Done()
-		ep <- m.srcNexus.getRepositoryAssetsRPC(gCli.String("path-filter"))
+		if err := m.srcNexus.getRepositoryAssetsRPC(gCli.String("path-filter")); err != nil {
+			ep <- err
+		}
+		if err := m.dstNexus.getRepositoryAssetsRPC(gCli.String("path-filter")); err != nil {
+			ep <- err
+		}
 	}()
 
 LOOP:
@@ -94,8 +99,10 @@ LOOP:
 			gLog.Info().Msg("Syscall.SIG* has been detected! Closing application...")
 			break LOOP
 		case e = <-ep:
-			gLog.Error().Err(e).Msg("Fatal Runtime Error!!! Abnormal application closing ...")
-			break LOOP
+			if e != nil {
+				gLog.Error().Err(e).Msg("Fatal Runtime Error!!! Abnormal application closing ...")
+				break LOOP
+			}
 		}
 	}
 
@@ -105,6 +112,42 @@ LOOP:
 
 	// return m.sync()
 	return e
+}
+
+func (m *Cloner) syncRPC(srcNexus, dstNexus *nexus) (e error) {
+	var missAssets []NexusAsset2
+	if missAssets = m.getMissingAssetsRPC(srcNexus.assetsCollection, dstNexus.assetsCollection); len(missAssets) == 0 {
+		return errClNoMissAssets
+	}
+
+	if gCli.Bool("skip-download") {
+		return
+	}
+
+	if e = m.srcNexus.createTemporaryDirectory(); e != nil {
+		return
+	}
+
+	if e = m.srcNexus.downloadMissingAssetsRPC(missAssets); e != nil {
+		return
+	}
+
+	//
+	// if e = m.srcNexus.downloadMissingAssets(missAssets); e != nil {
+	// 	return
+	// }
+
+	// // 4. Uplaod missed assets
+	// if gCli.Bool("skip-upload") {
+	// 	return
+	// }
+
+	// m.dstNexus.setTemporaryDirectory(m.srcNexus.getTemporaryDirectory())
+	// if e = m.dstNexus.uploadMissingAssets(missAssets); e != nil {
+	// 	return
+	// }
+
+	return
 }
 
 func (m *Cloner) sync() (e error) {
@@ -157,6 +200,35 @@ func (m *Cloner) getMetaFromRepositories() (srcAssets, dstAssets []*NexusAsset, 
 		return
 	}
 
+	return
+}
+
+func (m *Cloner) getMissingAssetsRPC(srcCollection, dstCollection []NexusAsset2) (missAssets []NexusAsset2) {
+	gLog.Debug().Int("srcColl", len(srcCollection)).Int("dstColl", len(dstCollection)).Msg("Starting search of missing assets")
+
+	var dstAssets = make(map[string]NexusAsset2, len(dstCollection))
+	for _, asset := range dstCollection {
+		dstAssets[asset.getHumanReadbleName()] = asset
+	}
+
+	for _, asset := range srcCollection {
+		if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(md5|sha1|sha256|sha512))$", asset.getHumanReadbleName()); matched {
+			gLog.Debug().Msgf("The asset %s will be skipped!", asset.getHumanReadbleName())
+			continue
+		}
+
+		if _, found := dstAssets[asset.getHumanReadbleName()]; !found {
+			missAssets = append(missAssets, asset)
+		}
+	}
+
+	if gIsDebug {
+		for _, asset := range missAssets {
+			gLog.Debug().Msg("Missing asset - " + asset.getHumanReadbleName())
+		}
+	}
+
+	gLog.Info().Msgf("There are %d missing assets in destination repository. Filelist u can see in debug logs.", len(missAssets))
 	return
 }
 

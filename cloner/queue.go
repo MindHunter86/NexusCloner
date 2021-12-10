@@ -3,8 +3,8 @@ package cloner
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"sync"
+	"time"
 )
 
 const (
@@ -22,6 +22,12 @@ const (
 	jobStatusBlocked
 	jobStatusFailed
 	jobStatusDone
+)
+
+const (
+	wrkStatusCreated = uint8(iota)
+	wrkStatusBusy
+	wrkStatusWaiting
 )
 
 type (
@@ -43,7 +49,8 @@ type (
 		pool  chan chan *job
 		queue chan *job
 
-		errors chan *jobError
+		errors     chan *jobError
+		statusPipe chan uint8
 	}
 	dispatcher struct {
 		ctx    context.Context
@@ -56,6 +63,8 @@ type (
 		workers        int
 		workerCapacity int
 		workersQueue   chan *job
+
+		statusPipe chan uint8
 	}
 	workerEvent struct {
 		status uint8
@@ -74,7 +83,9 @@ func newDispatcher(queueBuffer, workerCapacity, workers int) *dispatcher {
 
 		workers:        workers,
 		workerCapacity: workerCapacity,
-		workersQueue:   make(chan *job),
+		workersQueue:   make(chan *job, queueBuffer),
+
+		statusPipe: make(chan uint8),
 
 		ctx:    ctx,
 		cancel: cancel,
@@ -109,8 +120,14 @@ func (m *dispatcher) dispatch() {
 	gLog.Debug().Msg("dispatcher start dispatching...")
 	gLog.Debug().Msg("dispatcher - entering in event loop")
 
+	var mu sync.RWMutex
+	var waitingWorkers, busyWorkers int
+
+	var timer = time.NewTimer(5 * time.Second)
+
 	for {
 		select {
+
 		case <-m.ctx.Done():
 			gLog.Debug().Msg("dispatcher stopping dispatching...")
 			// for len(m.workersQueue) != 0 {
@@ -121,27 +138,50 @@ func (m *dispatcher) dispatch() {
 			// }
 			gLog.Debug().Msg("dispatcher stopped")
 			return
-		case j := <-m.queue:
-			go func() {
-				// defer func() {
-				// 	if recover() != nil {
-				// 		gLog.Warn().Msg("Panic caught! There is task loss detected!!!")
-				// 	}
-				// }()
+		// case j := <-m.queue:
+		// 	m.workersQueue <- j
+		// go func() {
+		// defer func() {
+		// 	if recover() != nil {
+		// 		gLog.Warn().Msg("Panic caught! There is task loss detected!!!")
+		// 	}
+		// }()
 
-				for {
-					select {
-					case <-m.ctx.Done():
-						return
-					case m.workersQueue <- j:
-						return
-					}
-				}
-			}()
+		// for {
+		// 	select {
+		// 	case <-m.ctx.Done():
+		// 		return
+		// 	case m.workersQueue <- j:
+		// 	}
+		// }
+		// }(Reset changes the timer to expire after duration d. It returns true if the timer had been active, false if the timer had expired or been stopped.)
+		case status := <-m.statusPipe:
+			timer.Stop()
+			switch status {
+			case wrkStatusBusy:
+				mu.Lock()
+				waitingWorkers = waitingWorkers - 1
+				// busyWorkers = busyWorkers + 1
+				mu.Unlock()
+			case wrkStatusWaiting:
+				mu.Lock()
+				waitingWorkers = waitingWorkers + 1
+				// busyWorkers = busyWorkers - 1
+				mu.Unlock()
+			}
+			gLog.Debug().Msgf("STATUS active - %d; busy - %d", waitingWorkers, busyWorkers)
+			if waitingWorkers == m.workers {
+				gLog.Info().Msg("Reset timer")
+				timer.Reset(5 * time.Second)
+			}
+		case <-timer.C:
+			gLog.Info().Msg("There is no jobs, closing dispatcher")
+			m.cancel()
+			return
+
 		case jErr := <-m.errorPipe:
-			debug.PrintStack()
 			if jErr.job.fails != 3 {
-				gLog.Warn().Msg("There is failed job found! Trying to restart task.")
+				gLog.Warn().Uint8("fails", jErr.job.fails).Err(jErr.err).Msg("There is failed job found! Trying to restart task.")
 				m.queue <- jErr.job
 			} else {
 				gLog.Error().Err(jErr.err).Msg("There is failed job found with unsuccessful retries! Skipping this task ...")
@@ -174,12 +214,15 @@ func newWorker(dp *dispatcher) *worker {
 	return &worker{
 		ctx:    dp.ctx,
 		errors: dp.errorPipe,
-		queue:  dp.workersQueue,
+		// queue:  dp.workersQueue,
+		queue:      dp.queue,
+		statusPipe: dp.statusPipe,
 	}
 }
 
 func (m *worker) spawn(i int) {
 	gLog.Debug().Msgf("Worker #%d has been spawned!", i)
+	m.setStatus(wrkStatusWaiting)
 
 	for {
 		select {
@@ -187,23 +230,32 @@ func (m *worker) spawn(i int) {
 			gLog.Debug().Msgf("Worker #%d received STOP signal. Stopping...", i)
 			return
 		case j := <-m.queue:
+			m.setStatus(wrkStatusBusy)
 			j.setStatus(jobStatusPending)
 			m.doJob(j)
+			m.setStatus(wrkStatusWaiting)
+		}
+	}
+}
+
+func (m *worker) setStatus(status uint8) {
+	for {
+		select {
+		case <-m.ctx.Done():
+			return
+		case m.statusPipe <- status:
+			return
 		}
 	}
 }
 
 func (m *worker) doJob(j *job) {
-	fmt.Println("DO JOB")
 	switch j.action {
 	case jobActParseAsset:
 		nexus := j.payload[0].(*nexus)
 		if e := nexus.getRepositoryAssetsRPC(j.payload[1].(string)); e != nil {
-			debug.PrintStack()
 			m.errors <- j.newError(e)
-			debug.PrintStack()
 		}
-		debug.PrintStack()
 	case jobActGetAsset:
 		nexus := j.payload[0].(*nexus)
 		if e := nexus.getRepositoryAssetInfo(j.payload[1].(NexusAsset2)); e != nil {

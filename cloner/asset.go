@@ -1,6 +1,7 @@
 package cloner
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path"
@@ -23,7 +24,7 @@ type NexusAsset2 interface {
 	getVersion() (string, error)
 	getId() (string, error)
 
-	addAttributes(map[string]interface{}) error
+	addAttributes(map[string]json.RawMessage) error
 }
 
 type (

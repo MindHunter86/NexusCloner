@@ -10,18 +10,23 @@ import (
 
 type (
 	rpcRsp struct {
-		Tid    int                        `json:"tid,omitempty"`
-		Action string                     `json:"action,omitempty"`
-		Method string                     `json:"method,omitempty"`
-		Result map[string]json.RawMessage `json:"result,omitempty"`
+		Tid             int                    `json:"tid,omitempty"`
+		Action          string                 `json:"action,omitempty"`
+		Method          string                 `json:"method,omitempty"`
+		Result          json.RawMessage        `json:"result,omitempty"`
+		Message         string                 `json:"message,omitempty"`
+		ServerException map[string]interface{} `json:"serverException,momitempty"`
+
+		method, action string
+		payload        []byte
 	}
 	rpcRspResult struct {
 		Success bool                     `json:"success,omitempty"`
 		Data    []map[string]interface{} `json:"data,omitempty"` // dynamic field in struct !!
 	}
 	rpcRspAssetResult struct {
-		Success bool                   `json:"success,omitempty"`
-		Data    map[string]interface{} `json:"data,omitempty"` // dynamic field in struct !!
+		Success bool                       `json:"success,omitempty"`
+		Data    map[string]json.RawMessage `json:"data,omitempty"` // dynamic field in struct !!
 	}
 	rpcTree struct {
 		Id   string `json:"id,omitempty"`
@@ -78,14 +83,17 @@ func newRpcAsset(rpcObject map[string]interface{}) *rpcAsset {
 	}
 }
 
-func (m *rpcAsset) addAttributes(rpcObject map[string]interface{}) (e error) {
-	attrPayload := rpcObject["attributes"].(json.RawMessage)
+func (m *rpcAsset) addAttributes(rpcObject map[string]json.RawMessage) (e error) {
+	// attrPayload := rpcObject["attributes"]
 
 	var assetAttrs *rpcAssetAttrs
-	if e = json.Unmarshal(attrPayload, &assetAttrs); e != nil {
+	if e = json.Unmarshal(rpcObject["attributes"], &assetAttrs); e != nil {
 		return
 	}
 
+	// m.Attributes = assetAttrs
+	// m.Attributes = &attrPayload
+	// gLog.Debug().Msgf("filename %s : sha1 - %s", m.Name, attrPayload.Checksum.Sha1)
 	m.Attributes = assetAttrs
 	gLog.Debug().Msgf("filename %s : sha1 - %s", m.Name, assetAttrs.Checksum.Sha1)
 	return

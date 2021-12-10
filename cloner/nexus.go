@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -100,6 +101,8 @@ func (m *nexus) getRepositoryStatus() (e error) {
 	return
 }
 
+// !!
+// TODO WARN IS RESULT IS EMPTY !!
 func (m *nexus) getRepositoryAssetsRPC(path string) (e error) {
 	var rpcPayload = map[string]string{
 		"node":           path,
@@ -116,7 +119,7 @@ func (m *nexus) getRepositoryAssetsRPC(path string) (e error) {
 
 func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
 	var rspResult *rpcRspResult
-	if e = json.Unmarshal(rsp.Result["data"], &rspResult); e != nil {
+	if e = json.Unmarshal(rsp.Result, &rspResult); e != nil {
 		return
 	}
 
@@ -139,7 +142,7 @@ func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
 			m.assetsCollection = append(m.assetsCollection, asset)
 			assetsLen := len(m.assetsCollection)
 			m.mu.Unlock()
-			gLog.Debug().Int("count", assetsLen).Msgf("New asset collected! %s %s", asset.Name, asset.Attributes.Checksum.Sha1)
+			gLog.Debug().Int("count", assetsLen).Msgf("New asset collected! %s", asset.Name)
 			gQueue.newJob(&job{
 				action:  jobActGetAsset,
 				payload: []interface{}{m, asset},
@@ -150,6 +153,8 @@ func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
 	return
 }
 
+// !!
+// TODO REFACTOR !!!
 func (m *nexus) getRepositoryAssetInfo(asset NexusAsset2) (e error) {
 	assetId, e := asset.getId()
 	if e != nil {
@@ -166,12 +171,22 @@ func (m *nexus) getRepositoryAssetInfo(asset NexusAsset2) (e error) {
 		return
 	}
 
+	if rpcResponse.ServerException != nil || len(rpcResponse.Message) != 0 {
+		fmt.Println(rpcResponse.method + " " + string(rpcResponse.payload))
+		fmt.Println(string(rpcResponse.Result))
+		gLog.Error().Msg(rpcResponse.Message)
+		gLog.Debug().Interface("ERR", rpcResponse.ServerException)
+		return errRpcClientIntErr
+	}
+
 	return m.parseRepositoryAssetInfoRPC(asset, rpcResponse)
 }
 
 func (m *nexus) parseRepositoryAssetInfoRPC(asset NexusAsset2, rsp *rpcRsp) (e error) {
 	var rspResult *rpcRspAssetResult
-	if e = json.Unmarshal(rsp.Result["data"], &rspResult); e != nil {
+	if e = json.Unmarshal(rsp.Result, &rspResult); e != nil {
+		fmt.Println(rsp.method + " " + string(rsp.payload))
+		fmt.Println(string(rsp.Result))
 		return
 	}
 
@@ -221,13 +236,21 @@ func (m *nexus) getRepositoryDataRPC(method string, data ...map[string]string) (
 
 	switch method {
 	case "read":
-		if payload, e = gRpc.newRpcJsonRequest(method, data); e != nil {
+		if payload, e = gRpc.newRpcJsonRequest(method, "coreui_Browse", data); e != nil {
 			return
 		}
-	default:
-		if payload, e = gRpc.newRpcJsonRequest(method, data[0]); e != nil {
+	case "readAsset":
+		var body = []string{
+			data[0]["0"],
+			data[0]["1"],
+		}
+		if payload, e = gRpc.newRpcJsonRequest(method, "coreui_Component", body); e != nil {
 			return
 		}
+		// default:
+		// 	if payload, e = gRpc.newRpcJsonRequest(method, "coreui_Component", data[0]); e != nil {
+		// 		return
+		// 	}
 	}
 
 	var rrl *url.URL
@@ -238,6 +261,9 @@ func (m *nexus) getRepositoryDataRPC(method string, data ...map[string]string) (
 	if e = gRpc.postRpcRequest(rrl.String(), payload, &rsp); e != nil {
 		return
 	}
+
+	rsp.payload = payload
+	rsp.method = method
 
 	return
 }
@@ -325,6 +351,10 @@ func (m *nexus) createTemporaryDirectory() (e error) {
 
 func (m *nexus) getTemporaryDirectory() string {
 	return m.tempPath
+}
+
+func (m *nexus) downloadMissingAssetsRPC(assets []NexusAsset2) (e error) {
+	return
 }
 
 // TODO

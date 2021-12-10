@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +18,9 @@ type rpcClient struct {
 	mu         sync.RWMutex
 	requestTid int
 }
+
+var errRpcClientNonOK = errors.New("There is abnormal response from Nexus server. Terminating request ...")
+var errRpcClientIntErr = errors.New("There is internal server error on Nexus instance. Check supported Nexus version and try again.")
 
 func newRpcClient() *rpcClient {
 	return &rpcClient{
@@ -32,14 +37,14 @@ func newRpcClient() *rpcClient {
 	}
 }
 
-func (m *rpcClient) newRpcRequest(method string, data *map[string]string) *rpcRequest {
+func (m *rpcClient) newRpcRequest(method, action string, data *map[string]string) *rpcRequest {
 	m.mu.Lock() // avoid race cond
 	tid := m.requestTid + 1
 	m.requestTid = tid
 	m.mu.Unlock()
 
 	return &rpcRequest{
-		Action: "coreui_Browse",
+		Action: action,
 		Tid:    tid,
 		Type:   "rpc",
 		Method: method,
@@ -47,19 +52,25 @@ func (m *rpcClient) newRpcRequest(method string, data *map[string]string) *rpcRe
 	}
 }
 
-func (m *rpcClient) newRpcJsonRequest(method string, data interface{}) ([]byte, error) {
+// TODO - CLEAN FROM DEBUGS
+func (m *rpcClient) newRpcJsonRequest(method, action string, data interface{}) ([]byte, error) {
 	m.mu.Lock() // avoid race cond
 	tid := m.requestTid + 1
 	m.requestTid = tid
 	m.mu.Unlock()
 
-	return json.Marshal(&rpcRequest{
-		Action: "coreui_Browse",
+	res, err := json.Marshal(&rpcRequest{
+		Action: action,
 		Type:   "rpc",
 		Tid:    tid,
 		Method: method,
 		Data:   data,
 	})
+	if err != nil {
+		fmt.Println(data)
+	}
+
+	return res, err
 }
 
 func (m *rpcClient) parseResponsePayload(rsp *io.ReadCloser, rspPayload interface{}) (e error) {
@@ -87,6 +98,7 @@ func (m *rpcClient) postRpcRequest(url string, reqPayload []byte, rspPayload int
 
 	if rsp.StatusCode != http.StatusOK {
 		gLog.Warn().Int("status", rsp.StatusCode).Msg("Abnormal RPC response! Check it immediately!")
+		return errRpcClientNonOK
 	}
 
 	defer rsp.Body.Close()
