@@ -99,10 +99,6 @@ func (m *nexus) getRepositoryStatus() (e error) {
 	return
 }
 
-func (m *nexus) getParsingJobRPC(payload map[string]string) (e error) {
-	return
-}
-
 func (m *nexus) getRepositoryAssetsRPC(path string) (e error) {
 	var rpcPayload = map[string]string{
 		"node":           path,
@@ -125,17 +121,20 @@ func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
 	for _, obj := range rsp.Result.Data {
 		switch obj["type"].(string) {
 		case "folder":
-			gQueue <- &job{
+			gQueue.newJob(&job{
 				action:  jobActParseAsset,
 				payload: []interface{}{m, obj["id"].(string)},
-			}
+			})
 		case "component":
 			continue
 		case "asset":
 			asset := newRpcAsset(obj)
 			m.mu.Lock()
 			m.assetsCollection = append(m.assetsCollection, asset)
+			// assetsLen := len(m.assetsCollection)
 			m.mu.Unlock()
+			// gLog.Debug().Msgf("New asset collected! %s", asset.Name)
+			// gLog.Debug().Msgf("Collected %d assets", assetsLen)
 		}
 	}
 

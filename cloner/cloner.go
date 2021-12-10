@@ -2,8 +2,13 @@ package cloner
 
 import (
 	"errors"
+	"fmt"
+	"os"
+	"os/signal"
 	"regexp"
 	"strings"
+	"sync"
+	"syscall"
 
 	"github.com/rs/zerolog"
 	"gopkg.in/urfave/cli.v1"
@@ -11,6 +16,7 @@ import (
 
 type Cloner struct {
 	srcNexus, dstNexus *nexus
+	mainDispatcher     *dispatcher
 }
 
 var (
@@ -18,7 +24,7 @@ var (
 	gCli     *cli.Context
 	gApi     *nexusApi
 	gRpc     *rpcClient
-	gQueue   chan *job
+	gQueue   *dispatcher
 	gIsDebug bool
 )
 
@@ -43,20 +49,58 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 		return e
 	}
 
-	if m.dstNexus, e = newNexus().initiate(gCli.Args().Get(1)); e != nil {
-		return e
-	}
+	// if m.dstNexus, e = newNexus().initiate(gCli.Args().Get(1)); e != nil {
+	// 	return e
+	// }
 
+	defer func() {
+		m.srcNexus.destruct()
+		// m.dstNexus.destruct()
+	}()
+
+	// FEATURE QUEUE
+	var kernSignal = make(chan os.Signal)
+	signal.Notify(kernSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
+
+	var wg sync.WaitGroup
+	var ep = make(chan error, 1)
+
+	m.mainDispatcher = newDispatcher(gCli.Int("queue-buffer"), gCli.Int("queue-workers-capacity"), gCli.Int("queue-workers"))
+	gQueue = m.mainDispatcher
+
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+
+		gLog.Info().Msg("Main queue spawning ...")
+		ep <- m.mainDispatcher.bootstrap()
+	}()
+
+	// FEATURE RPC
 	if gCli.Bool("use-rpc") {
 		gRpc = newRpcClient()
 	}
 
-	defer func() {
-		m.srcNexus.destruct()
-		m.dstNexus.destruct()
-	}()
+	m.srcNexus.getRepositoryAssetsRPC(gCli.String("path-filter"))
 
-	return m.sync()
+LOOP:
+	for {
+		select {
+		case <-kernSignal:
+			gLog.Info().Msg("Syscall.SIG* has been detected! Closing application...")
+			break LOOP
+		case e = <-ep:
+			gLog.Error().Err(e).Msg("Fatal Runtime Error!!! Abnormal application closing ...")
+			break LOOP
+		}
+	}
+
+	m.mainDispatcher.destroy()
+	wg.Wait()
+	fmt.Println("OKOK")
+
+	// return m.sync()
+	return e
 }
 
 func (m *Cloner) sync() (e error) {

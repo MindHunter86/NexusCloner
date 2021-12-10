@@ -98,6 +98,18 @@ func main() {
 			Usage: "Define RPC endpoint for assets collection",
 			Value: "/service/extdirect",
 		},
+		cli.IntFlag{
+			Name:  "queue-buffer",
+			Value: 32,
+		},
+		cli.IntFlag{
+			Name:  "queue-workers",
+			Value: 2,
+		},
+		cli.IntFlag{
+			Name:  "queue-workers-capacity",
+			Value: 32,
+		},
 	}
 
 	log := zerolog.New(zerolog.ConsoleWriter{

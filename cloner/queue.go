@@ -1,6 +1,10 @@
 package cloner
 
-import "sync"
+import (
+	"context"
+	"fmt"
+	"sync"
+)
 
 const (
 	jobActParseAsset = uint8(iota)
@@ -20,83 +24,83 @@ const (
 
 type (
 	job struct {
-		payload        []interface{}
-		payloadFunc    func([]interface{}) error
+		payload     []interface{}
+		payloadFunc func([]interface{}) error
+		fails       uint8
+
+		mu             sync.RWMutex
 		status, action uint8
-		fails          uint8
 	}
 	jobError struct {
 		err error
 		job *job
 	}
 	worker struct {
-		pool  chan chan *job
-		inbox chan *job
+		ctx context.Context
 
-		done   chan struct{}
+		pool  chan chan *job
+		queue chan *job
+
 		errors chan *jobError
 	}
 	dispatcher struct {
-		queue      chan *job
-		pool       chan chan *job
-		done       chan struct{}
-		workerDone chan struct{}
-		errorPipe  chan *jobError
+		ctx    context.Context
+		cancel context.CancelFunc
 
+		queue     chan *job
+		pool      chan chan *job
+		errorPipe chan *jobError
+
+		workers        int
 		workerCapacity int
+		workersQueue   chan *job
+	}
+	workerEvent struct {
+		status uint8
+		worker *worker
 	}
 )
 
-func newDispatcher(queueBuffer, workerCapacity int) *dispatcher {
+func newDispatcher(queueBuffer, workerCapacity, workers int) *dispatcher {
+	gLog.Debug().Msgf("Queue buf - %d ; Workers Capacity - %d ; Workers - %d ;", queueBuffer, workerCapacity, workers)
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &dispatcher{
-		queue:      make(chan *job, queueBuffer),
-		pool:       make(chan chan *job, workerCapacity),
-		done:       make(chan struct{}, 1),
-		workerDone: make(chan struct{}, 1),
-		errorPipe:  make(chan *jobError),
+		queue:     make(chan *job, queueBuffer),
+		pool:      make(chan chan *job, workerCapacity),
+		errorPipe: make(chan *jobError),
 
+		workers:        workers,
 		workerCapacity: workerCapacity,
+		workersQueue:   make(chan *job),
+
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
-func newWorker(dp *dispatcher) *worker {
-	return &worker{
-		pool:   dp.pool,
-		inbox:  make(chan *job, dp.workerCapacity),
-		done:   dp.workerDone,
-		errors: dp.errorPipe,
-	}
-}
-
-func newJob() *job {
-	return &job{
-		status: jobStatusCreated,
-	}
-}
-
-func (m *dispatcher) bootstrap(workers int) (e error) {
+func (m *dispatcher) bootstrap() (e error) {
 	gLog.Debug().Msg("dispatcher initialization...")
 
 	var wg sync.WaitGroup
-	wg.Add(workers + 1)
+	wg.Add(m.workers)
 
-	for i := 0; i < workers; i++ {
-		go func(wg sync.WaitGroup) {
-			newWorker(m).spawn()
+	for i := 0; i < m.workers; i++ {
+		go func(num int) {
+			gLog.Debug().Msgf("Spawning worker #%d ...", num)
+			newWorker(m).spawn(num)
+			gLog.Debug().Msgf("Worker #%d died", num)
 			wg.Done()
-		}(wg)
+			fmt.Println("1")
+		}(i)
 	}
 
-	go func(wg sync.WaitGroup) {
-		m.dispatch()
-		close(m.workerDone)
-		wg.Done()
-	}(wg)
-
 	gLog.Debug().Msg("workers spawned successfully")
-	gLog.Debug().Msg("dispatcher spawner in waiting mode")
-	wg.Wait()
+	m.dispatch()
 
+	fmt.Println("WAIT")
+	wg.Wait()
+	fmt.Println("OK")
 	return
 }
 
@@ -106,13 +110,33 @@ func (m *dispatcher) dispatch() {
 
 	for {
 		select {
-		case <-m.done:
+		case <-m.ctx.Done():
+			gLog.Debug().Msg("dispatcher stopping dispatching...")
+			// for len(m.workersQueue) != 0 {
+			// 	<-m.workersQueue
+			// }
+			// for len(m.queue) != 0 {
+			// 	<-m.queue
+			// }
+			gLog.Debug().Msg("dispatcher stopped")
 			return
 		case j := <-m.queue:
-			go func(j *job) {
-				nextWorker := <-m.pool
-				nextWorker <- j
-			}(j)
+			go func() {
+				// defer func() {
+				// 	if recover() != nil {
+				// 		gLog.Warn().Msg("Panic caught! There is task loss detected!!!")
+				// 	}
+				// }()
+
+				for {
+					select {
+					case <-m.ctx.Done():
+						return
+					case m.workersQueue <- j:
+						return
+					}
+				}
+			}()
 		case jErr := <-m.errorPipe:
 			if jErr.job.fails != 3 {
 				gLog.Warn().Msg("There is failed job found! Trying to restart task.")
@@ -129,17 +153,38 @@ func (m *dispatcher) getQueueChan() chan *job {
 }
 
 func (m *dispatcher) destroy() {
-	close(m.done)
+	gLog.Debug().Msg("Send STOP to all workers...")
+	m.cancel()
 }
 
-func (m *worker) spawn() {
-	defer close(m.inbox)
+func (m *dispatcher) newJob(j *job) {
+	for {
+		select {
+		case <-m.ctx.Done():
+			return
+		case m.queue <- j:
+			return
+		}
+	}
+}
+
+func newWorker(dp *dispatcher) *worker {
+	return &worker{
+		ctx:    dp.ctx,
+		errors: dp.errorPipe,
+		queue:  dp.workersQueue,
+	}
+}
+
+func (m *worker) spawn(i int) {
+	gLog.Debug().Msgf("Worker #%d has been spawned!", i)
 
 	for {
-		m.pool <- m.inbox
 		select {
-		case <-m.done:
-		case j := <-m.inbox:
+		case <-m.ctx.Done():
+			gLog.Debug().Msgf("Worker #%d received STOP signal. Stopping...", i)
+			return
+		case j := <-m.queue:
 			j.setStatus(jobStatusPending)
 			m.doJob(j)
 		}
@@ -169,11 +214,13 @@ func (m *worker) doJob(j *job) {
 }
 
 func (m *job) setStatus(status uint8) {
+	m.mu.Lock()
 	if status == jobStatusFailed {
 		m.fails++
 	}
 
 	m.status = status
+	m.mu.Unlock()
 }
 
 func (m *job) newError(err error) *jobError {
