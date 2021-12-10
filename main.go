@@ -100,11 +100,11 @@ func main() {
 		},
 		cli.IntFlag{
 			Name:  "queue-buffer",
-			Value: 32,
+			Value: 128,
 		},
 		cli.IntFlag{
 			Name:  "queue-workers",
-			Value: 2,
+			Value: 12,
 		},
 		cli.IntFlag{
 			Name:  "queue-workers-capacity",

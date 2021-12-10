@@ -18,4 +18,5 @@ vendor/
 
 # Binary data
 bin/
-pkg/
+pkg/.vscode/launch.json
+.vscode/launch.json

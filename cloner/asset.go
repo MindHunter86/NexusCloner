@@ -21,6 +21,9 @@ type NexusAsset2 interface {
 	getGroupId() (string, error)
 	getArtifactId() (string, error)
 	getVersion() (string, error)
+	getId() (string, error)
+
+	addAttributes(map[string]interface{}) error
 }
 
 type (

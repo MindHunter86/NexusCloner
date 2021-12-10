@@ -2,6 +2,7 @@ package cloner
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -114,11 +115,16 @@ func (m *nexus) getRepositoryAssetsRPC(path string) (e error) {
 }
 
 func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
-	if !rsp.Result.Success {
+	var rspResult *rpcRspResult
+	if e = json.Unmarshal(rsp.Result["data"], &rspResult); e != nil {
+		return
+	}
+
+	if !rspResult.Success {
 		gLog.Warn().Msg("There is some errors in parsing RPC response. Api said that Result.Success is false!")
 	}
 
-	for _, obj := range rsp.Result.Data {
+	for _, obj := range rspResult.Data {
 		switch obj["type"].(string) {
 		case "folder":
 			gQueue.newJob(&job{
@@ -131,14 +137,49 @@ func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
 			asset := newRpcAsset(obj)
 			m.mu.Lock()
 			m.assetsCollection = append(m.assetsCollection, asset)
-			// assetsLen := len(m.assetsCollection)
+			assetsLen := len(m.assetsCollection)
 			m.mu.Unlock()
-			// gLog.Debug().Msgf("New asset collected! %s", asset.Name)
-			// gLog.Debug().Msgf("Collected %d assets", assetsLen)
+			gLog.Debug().Int("count", assetsLen).Msgf("New asset collected! %s %s", asset.Name, asset.Attributes.Checksum.Sha1)
+			gQueue.newJob(&job{
+				action:  jobActGetAsset,
+				payload: []interface{}{m, asset},
+			})
 		}
 	}
 
 	return
+}
+
+func (m *nexus) getRepositoryAssetInfo(asset NexusAsset2) (e error) {
+	assetId, e := asset.getId()
+	if e != nil {
+		return
+	}
+
+	var rpcPayload = map[string]string{
+		"0": assetId,
+		"1": m.repository,
+	}
+
+	var rpcResponse *rpcRsp
+	if rpcResponse, e = m.getRepositoryDataRPC("readAsset", rpcPayload); e != nil {
+		return
+	}
+
+	return m.parseRepositoryAssetInfoRPC(asset, rpcResponse)
+}
+
+func (m *nexus) parseRepositoryAssetInfoRPC(asset NexusAsset2, rsp *rpcRsp) (e error) {
+	var rspResult *rpcRspAssetResult
+	if e = json.Unmarshal(rsp.Result["data"], &rspResult); e != nil {
+		return
+	}
+
+	if !rspResult.Success {
+		gLog.Warn().Msg("There is some errors in parsing RPC response. Api said that Result.Success is false!")
+	}
+
+	return asset.addAttributes(rspResult.Data)
 }
 
 /*func (m *ICQApi) parseChatMessagesResponse(chatId string, messages []*getHistoryRspResultMessage) (lastMsgId uint64, e error) {

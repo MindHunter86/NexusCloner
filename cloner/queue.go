@@ -3,12 +3,14 @@ package cloner
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sync"
 )
 
 const (
 	jobActParseAsset = uint8(iota)
 	jobActGetAsset
+	jobActFindAsset
 	jobActDownloadAsset
 	jobActUploadAsset
 	jobActCustomFunc
@@ -91,7 +93,6 @@ func (m *dispatcher) bootstrap() (e error) {
 			newWorker(m).spawn(num)
 			gLog.Debug().Msgf("Worker #%d died", num)
 			wg.Done()
-			fmt.Println("1")
 		}(i)
 	}
 
@@ -138,6 +139,7 @@ func (m *dispatcher) dispatch() {
 				}
 			}()
 		case jErr := <-m.errorPipe:
+			debug.PrintStack()
 			if jErr.job.fails != 3 {
 				gLog.Warn().Msg("There is failed job found! Trying to restart task.")
 				m.queue <- jErr.job
@@ -192,13 +194,22 @@ func (m *worker) spawn(i int) {
 }
 
 func (m *worker) doJob(j *job) {
+	fmt.Println("DO JOB")
 	switch j.action {
 	case jobActParseAsset:
 		nexus := j.payload[0].(*nexus)
 		if e := nexus.getRepositoryAssetsRPC(j.payload[1].(string)); e != nil {
+			debug.PrintStack()
+			m.errors <- j.newError(e)
+			debug.PrintStack()
+		}
+		debug.PrintStack()
+	case jobActGetAsset:
+		nexus := j.payload[0].(*nexus)
+		if e := nexus.getRepositoryAssetInfo(j.payload[1].(NexusAsset2)); e != nil {
 			m.errors <- j.newError(e)
 		}
-	case jobActGetAsset:
+	case jobActFindAsset:
 	case jobActDownloadAsset:
 	case jobActUploadAsset:
 		// case jobActCustomFunc:

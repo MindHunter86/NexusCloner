@@ -1,6 +1,7 @@
 package cloner
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path"
@@ -9,14 +10,18 @@ import (
 
 type (
 	rpcRsp struct {
-		Tid    int           `json:"tid,omitempty"`
-		Action string        `json:"action,omitempty"`
-		Method string        `json:"method,omitempty"`
-		Result *rpcRspResult `json:"result,omitempty"`
+		Tid    int                        `json:"tid,omitempty"`
+		Action string                     `json:"action,omitempty"`
+		Method string                     `json:"method,omitempty"`
+		Result map[string]json.RawMessage `json:"result,omitempty"`
 	}
 	rpcRspResult struct {
 		Success bool                     `json:"success,omitempty"`
 		Data    []map[string]interface{} `json:"data,omitempty"` // dynamic field in struct !!
+	}
+	rpcRspAssetResult struct {
+		Success bool                   `json:"success,omitempty"`
+		Data    map[string]interface{} `json:"data,omitempty"` // dynamic field in struct !!
 	}
 	rpcTree struct {
 		Id   string `json:"id,omitempty"`
@@ -73,6 +78,19 @@ func newRpcAsset(rpcObject map[string]interface{}) *rpcAsset {
 	}
 }
 
+func (m *rpcAsset) addAttributes(rpcObject map[string]interface{}) (e error) {
+	attrPayload := rpcObject["attributes"].(json.RawMessage)
+
+	var assetAttrs *rpcAssetAttrs
+	if e = json.Unmarshal(attrPayload, &assetAttrs); e != nil {
+		return
+	}
+
+	m.Attributes = assetAttrs
+	gLog.Debug().Msgf("filename %s : sha1 - %s", m.Name, assetAttrs.Checksum.Sha1)
+	return
+}
+
 func (m *rpcAsset) catchPanic(err *error) {
 	if recover() != nil {
 		*err = errRpcAssetPanic
@@ -123,6 +141,16 @@ func (m *rpcAsset) getVersion() (data string, e error) {
 
 	if len(m.Attributes.Maven2.Version) != 0 {
 		data = m.Attributes.Maven2.Version
+	}
+
+	return
+}
+
+func (m *rpcAsset) getId() (data string, e error) {
+	defer m.catchPanic(&e)
+
+	if len(m.Id) != 0 {
+		data = m.Id
 	}
 
 	return

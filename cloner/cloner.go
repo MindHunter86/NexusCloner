@@ -81,7 +81,11 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 		gRpc = newRpcClient()
 	}
 
-	m.srcNexus.getRepositoryAssetsRPC(gCli.String("path-filter"))
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		ep <- m.srcNexus.getRepositoryAssetsRPC(gCli.String("path-filter"))
+	}()
 
 LOOP:
 	for {
