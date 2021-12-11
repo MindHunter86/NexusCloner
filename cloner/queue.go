@@ -255,25 +255,29 @@ func (m *worker) setStatus(status uint8) {
 func (m *worker) doJob(j *job) {
 	switch j.action {
 	case jobActParseAsset:
-		nexus := j.payload[0].(*nexus)
-		if e := nexus.getRepositoryAssetsRPC(j.payload[1].(string)); e != nil {
+		nxs := j.payload[0].(*nexus)
+		if e := nxs.getRepositoryAssetsRPC(j.payload[1].(string)); e != nil {
 			m.errors <- j.newError(e)
+			return
 		}
 	case jobActGetAsset:
-		nexus := j.payload[0].(*nexus)
-		if e := nexus.getRepositoryAssetInfo(j.payload[1].(NexusAsset2)); e != nil {
+		nxs := j.payload[0].(*nexus)
+		if e := nxs.getRepositoryAssetInfo(j.payload[1].(NexusAsset2)); e != nil {
 			m.errors <- j.newError(e)
+			return
 		}
 	case jobActFindAsset:
 	case jobActDownloadAsset:
-		nexus := j.payload[0].(*nexus)
+		nxsFrom := j.payload[0].(*nexus)
 		asset := j.payload[1].(NexusAsset2)
+		nxsTo := j.payload[2].(*nexus)
 
-		if e := nexus.downloadAssetRPC(asset); e != nil {
+		if e := nxsFrom.downloadAssetRPC(asset); e != nil {
 			m.errors <- j.newError(e)
+			return
 		}
 
-		nexus.incDownloadedAssets()
+		nxsFrom.incDownloadedAssets()
 		gLog.Info().Msgf("Asset %s has been downloaded successfully.", asset.getHumanReadbleName())
 
 		if gCli.Bool("skip-upload") {
@@ -283,18 +287,39 @@ func (m *worker) doJob(j *job) {
 
 		gQueue.newJob(&job{
 			action:  jobActUploadAsset,
-			payload: []interface{}{nexus, asset},
+			payload: []interface{}{nxsTo, asset},
 		})
 	case jobActUploadAsset:
-		nexus := j.payload[0].(*nexus)
+		nxs := j.payload[0].(*nexus)
 		asset := j.payload[1].(NexusAsset2)
 
-		if e := nexus.uploadAssetRPC(asset); e != nil {
-			return
+		if gCli.Bool("use-put-upload") {
+			if e := nxs.uploadAssetHttpFormatRPC(asset); e != nil {
+				m.errors <- j.newError(e)
+				return
+			}
+		} else {
+			if e := nxs.uploadAssetRPC(asset); e != nil {
+				m.errors <- j.newError(e)
+				return
+			}
 		}
 
-		nexus.incUploadedAssets()
+		nxs.incUploadedAssets()
 		gLog.Info().Msgf("Asset %s has been upload successfully.", asset.getHumanReadbleName())
+
+		gQueue.newJob(&job{
+			action:  jobActDeleteAsset,
+			payload: []interface{}{nxs, asset},
+		})
+	case jobActDeleteAsset:
+		nxs := j.payload[0].(*nexus)
+		asset := j.payload[1].(NexusAsset2)
+
+		if e := nxs.deleteAssetTemporaryFile(asset); e != nil {
+			m.errors <- j.newError(e)
+			return
+		}
 
 		// case jobActCustomFunc:
 		// 	if j.payloadFunc != nil {

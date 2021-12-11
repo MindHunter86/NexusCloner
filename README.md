@@ -104,6 +104,9 @@ The second method is collection via Nexus RPC. As I saw, there is no documentati
 By default the application is use API for all communications with Nexus. If you have some troubles with this method, try RPC with --skip-download and --skip-upload for verifing that RPC method has no crashes with your Nexus installation.
 
 
+## Upload method and rebuild repository metadata
+Repair - Rebuild Maven repository metadata (maven-metadata.xml)
+
 ## Testing
 There is no test files, sorry =(
 

@@ -137,8 +137,8 @@ func (m *Cloner) syncRPC(ep chan error) (e error) {
 	m.mainDispatcher = newDispatcher(gCli.Int("queue-buffer"), gCli.Int("queue-workers-capacity"), gCli.Int("queue-workers"))
 	gQueue = m.mainDispatcher
 
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
 
 		gLog.Info().Msg("Main queue spawning ...")
@@ -148,8 +148,9 @@ func (m *Cloner) syncRPC(ep chan error) (e error) {
 	if e = m.srcNexus.createTemporaryDirectory(); e != nil {
 		return
 	}
+	m.dstNexus.setTemporaryDirectory(m.srcNexus.getTemporaryDirectory())
 
-	if e = m.srcNexus.downloadMissingAssetsRPC(missAssets); e != nil {
+	if e = m.srcNexus.downloadMissingAssetsRPC(missAssets, m.dstNexus); e != nil {
 		return
 	}
 

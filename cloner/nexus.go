@@ -374,7 +374,7 @@ func (m *nexus) getTemporaryDirectory() string {
 	return m.tempPath
 }
 
-func (m *nexus) downloadMissingAssetsRPC(assets []NexusAsset2) (e error) {
+func (m *nexus) downloadMissingAssetsRPC(assets []NexusAsset2, dstNexus *nexus) (e error) {
 	var dwnListLen = len(assets)
 
 	gLog.Info().Msgf("There are %d marked for downloading.", dwnListLen)
@@ -387,13 +387,9 @@ func (m *nexus) downloadMissingAssetsRPC(assets []NexusAsset2) (e error) {
 	for _, asset := range assets {
 		gQueue.newJob(&job{
 			action:  jobActDownloadAsset,
-			payload: []interface{}{m, asset},
+			payload: []interface{}{m, asset, dstNexus},
 		})
 	}
-	return
-}
-
-func (m *nexus) uploadAssetRPC(asset NexusAsset2) (e error) {
 	return
 }
 
@@ -465,6 +461,105 @@ func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
 	return nil
 }
 
+func (m *nexus) deleteAssetTemporaryFile(asset NexusAsset2) (e error) {
+	var filepath string
+	if filepath, e = asset.getTemporaryFilePath(m.tempPath); e != nil {
+		return
+	}
+
+	if e = os.Remove(filepath); e != nil {
+		gLog.Error().Msg("Could not delete file!")
+		return
+	}
+
+	gLog.Debug().Msg("Uploaded assets has been successfully deleted from local filesystem.")
+	asset.deleteAsset()
+	runtime.GC()
+	return
+}
+
+// if used it, do not forget about "Repair - Rebuild Maven repository metadata (maven-metadata.xml)" task
+func (m *nexus) uploadAssetHttpFormatRPC(asset NexusAsset2) (e error) {
+	var fd *os.File
+	if fd, e = asset.isFileExists(m.tempPath); e != nil {
+		return
+	}
+	defer fd.Close()
+
+	var assetReqUri string
+	if assetReqUri, e = asset.getDownloadUrl(m.repository, m.endpoint); e != nil {
+		return
+	}
+
+	var rrl *url.URL
+	if rrl, e = url.Parse(assetReqUri); e != nil {
+		return
+	}
+
+	if e = m.api.putNexusFile(rrl.String(), fd); e != nil {
+		return
+	}
+
+	return
+}
+
+func (m *nexus) uploadAssetRPC(asset NexusAsset2) (e error) {
+	var fd *os.File
+	if fd, e = asset.isFileExists(m.tempPath); e != nil {
+		return
+	}
+	defer fd.Close()
+
+	var apiForm = make(map[string]io.Reader)
+	apiForm["asset0"] = fd
+	var classifier, extension, groupId, artifactId, version string
+	if classifier, e = asset.getClassifier(); e != nil {
+		return
+	}
+	if extension, e = asset.getExtension(); e != nil {
+		return
+	}
+	if groupId, e = asset.getGroupId(); e != nil {
+		return
+	}
+	if artifactId, e = asset.getArtifactId(); e != nil {
+		return
+	}
+	if version, e = asset.getVersion(); e != nil {
+		return
+	}
+
+	apiForm["asset0.classifier"] = strings.NewReader(classifier)
+	apiForm["asset0.extension"] = strings.NewReader(extension)
+	apiForm["groupId"] = strings.NewReader(groupId)
+	apiForm["artifactId"] = strings.NewReader(artifactId)
+	apiForm["version"] = strings.NewReader(version)
+	apiForm["generate-pom"] = strings.NewReader("on")
+
+	var buffer *bytes.Buffer
+	var contentType string
+	if buffer, contentType, e = m.getNexusFileMeta(apiForm); e != nil {
+		gLog.Error().Err(e).Str("filename", asset.getHumanReadbleName()).
+			Msg("Could not get meta data for the asset's file.")
+		return
+	}
+
+	var rrl *url.URL
+	if rrl, e = m.endpoint.Parse("/service/rest/v1/components"); e != nil {
+		return
+	}
+
+	var rgs = &url.Values{}
+	rgs.Set("repository", m.repository)
+	rrl.RawQuery = rgs.Encode()
+
+	if e = m.api.postNexusFile(rrl.String(), buffer, contentType); e != nil {
+		return
+	}
+
+	return
+}
+
 func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 	var isErrored bool
 	var assetsCount = len(assets)
@@ -477,6 +572,7 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 				Msg("Could not find the asset's file. Asset will be skipped!")
 			continue
 		}
+		defer file.Close()
 
 		gLog.Debug().Msg("asset - " + asset.getHumanReadbleName())
 
@@ -518,7 +614,7 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 		rgs.Set("repository", m.repository)
 		rrl.RawQuery = rgs.Encode()
 
-		if e = m.api.putNexusFile(rrl.String(), body, contentType); e != nil {
+		if e = m.api.postNexusFile(rrl.String(), body, contentType); e != nil {
 			isErrored = true
 			continue
 		}

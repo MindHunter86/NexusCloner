@@ -15,6 +15,7 @@ type NexusAsset2 interface {
 	// getBinaryFile() (*os.File, error)
 	getTemporaryFile(string) (*os.File, error)
 	isFileExists(string) (*os.File, error)
+	getTemporaryFilePath(string) (string, error)
 
 	getDownloadUrl(string, *url.URL) (string, error)
 	getExtension() (string, error)
@@ -23,9 +24,12 @@ type NexusAsset2 interface {
 	getVersion() (string, error)
 	getId() (string, error)
 	getAssetFd() *os.File
+	getClassifier() (string, error)
+	getBaseVersion() (string, error)
 
-	setDownloaded()
 	addAttributes(map[string]json.RawMessage) error
+	setDownloaded()
+	deleteAsset()
 }
 
 type (

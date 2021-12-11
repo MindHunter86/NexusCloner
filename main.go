@@ -90,6 +90,10 @@ func main() {
 			Value: ".*",
 		},
 		cli.BoolFlag{
+			Name:  "use-put-upload",
+			Usage: "Use PUT asset upload instead of POST via API.",
+		},
+		cli.BoolFlag{
 			Name:  "use-rpc",
 			Usage: "Use RPC protocol for assets collection on source nexus server. Unstable, testing feature.",
 		},

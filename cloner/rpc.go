@@ -66,11 +66,12 @@ type (
 		Sha512 string `json:"sha512,omitempty"`
 	}
 	rpcAssetAttrsMaven2 struct {
-		Extension  string `json:"extension,omitempty"`
-		GroupId    string `json:"groupId,omitempty"`
-		ArtifactId string `json:"artifactId,omitempty"`
-		Version    string `json:"version,omitempty"`
-		Classifier string `json:"classifier,omitempty"`
+		Extension   string `json:"extension,omitempty"`
+		GroupId     string `json:"groupId,omitempty"`
+		ArtifactId  string `json:"artifactId,omitempty"`
+		Version     string `json:"version,omitempty"`
+		Classifier  string `json:"classifier,omitempty"`
+		BaseVersion string `json:"baseVersion,omitempty"`
 	}
 )
 
@@ -188,6 +189,26 @@ func (m *rpcAsset) getId() (data string, e error) {
 	return
 }
 
+func (m *rpcAsset) getClassifier() (data string, e error) {
+	defer m.catchPanic(&e)
+
+	if len(m.Attributes.Maven2.Classifier) != 0 {
+		data = m.Attributes.Maven2.Classifier
+	}
+
+	return
+}
+
+func (m *rpcAsset) getBaseVersion() (data string, e error) {
+	defer m.catchPanic(&e)
+
+	if len(m.Attributes.Maven2.BaseVersion) != 0 {
+		data = m.Attributes.Maven2.BaseVersion
+	}
+
+	return
+}
+
 func (m *rpcAsset) getHumanReadbleName() string {
 	return strings.ReplaceAll(m.Name, "/", "_")
 }
@@ -204,6 +225,19 @@ func (m *rpcAsset) isFileExists(tmpdir string) (file *os.File, e error) {
 		return
 	}
 
+	return
+}
+
+func (m *rpcAsset) getTemporaryFilePath(tmpdir string) (filepath string, e error) {
+	filename := path.Base(m.Name)
+	filepath = tmpdir + "/" + filename
+	if _, e = os.Stat(filepath); e != nil {
+		if errors.Is(e, os.ErrNotExist) {
+			gLog.Error().Err(e).Msg("There is internal error in asset temporary file processing! Given asset was not found!")
+			return
+		}
+		return
+	}
 	return
 }
 
@@ -304,10 +338,9 @@ func (m *rpcAsset) getAssetFd() *os.File { return m.dwnedFd }
 func (m *rpcAsset) isDownloaded() bool   { return m.dwnedSuccess }
 func (m *rpcAsset) setDownloaded()       { m.dwnedSuccess = true }
 
-func (m *rpcAsset) uploadAsset() (e error) {
-	return
-}
-
-func (m *rpcAsset) deleteAsset() (e error) {
+func (m *rpcAsset) deleteAsset() {
+	// rewrite current struct with empty object for memory free
+	// it will be freed by the GC in him next iteration
+	*m = rpcAsset{}
 	return
 }
