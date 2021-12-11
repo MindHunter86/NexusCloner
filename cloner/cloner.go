@@ -17,15 +17,17 @@ import (
 type Cloner struct {
 	srcNexus, dstNexus *nexus
 	mainDispatcher     *dispatcher
+	uplDispatcher      *dispatcher
 }
 
 var (
-	gLog     *zerolog.Logger
-	gCli     *cli.Context
-	gApi     *nexusApi
-	gRpc     *rpcClient
-	gQueue   *dispatcher
-	gIsDebug bool
+	gLog      *zerolog.Logger
+	gCli      *cli.Context
+	gApi      *nexusApi
+	gRpc      *rpcClient
+	gQueue    *dispatcher
+	gUplQueue *dispatcher
+	gIsDebug  bool
 )
 
 var (
@@ -63,7 +65,7 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 	signal.Notify(kernSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
 
 	var wg sync.WaitGroup
-	var ep = make(chan error, 1)
+	var ep = make(chan error, 10) // !!
 
 	m.mainDispatcher = newDispatcher(gCli.Int("queue-buffer"), gCli.Int("queue-workers-capacity"), gCli.Int("queue-workers"))
 	gQueue = m.mainDispatcher
@@ -73,7 +75,7 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 		defer wg.Done()
 
 		gLog.Info().Msg("Main queue spawning ...")
-		ep <- m.mainDispatcher.bootstrap()
+		ep <- m.mainDispatcher.bootstrap(false)
 	}()
 
 	// FEATURE RPC
@@ -92,6 +94,7 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 		}
 	}()
 
+	var fuckyou bool
 LOOP:
 	for {
 		select {
@@ -99,6 +102,9 @@ LOOP:
 			gLog.Info().Msg("Syscall.SIG* has been detected! Closing application...")
 			break LOOP
 		case e = <-ep:
+			if fuckyou {
+				continue
+			}
 			if e != nil {
 				gLog.Error().Err(e).Msg("Fatal Runtime Error!!! Abnormal application closing ...")
 				break LOOP
@@ -110,11 +116,13 @@ LOOP:
 				break LOOP
 			}
 
-			break LOOP
+			gLog.Info().Msg("GOOD, CLOSE APPLICATION")
+			fuckyou = true
 		}
 	}
 
 	m.mainDispatcher.destroy()
+	m.uplDispatcher.destroy()
 	wg.Wait()
 	fmt.Println("OKOK")
 
@@ -137,12 +145,21 @@ func (m *Cloner) syncRPC(ep chan error) (e error) {
 	m.mainDispatcher = newDispatcher(gCli.Int("queue-buffer"), gCli.Int("queue-workers-capacity"), gCli.Int("queue-workers"))
 	gQueue = m.mainDispatcher
 
-	wg.Add(1)
+	m.uplDispatcher = newDispatcher(gCli.Int("queue-buffer"), gCli.Int("queue-workers-capacity"), gCli.Int("queue-workers"))
+	gUplQueue = m.uplDispatcher
+
+	wg.Add(1) // !!
 	go func() {
 		defer wg.Done()
 
 		gLog.Info().Msg("Main queue spawning ...")
-		ep <- m.mainDispatcher.bootstrap()
+		ep <- m.mainDispatcher.bootstrap(false)
+	}()
+	go func() {
+		// defer wg.Done()
+
+		gLog.Info().Msg("Upload queue spawning ...")
+		ep <- m.uplDispatcher.bootstrap(true)
 	}()
 
 	if e = m.srcNexus.createTemporaryDirectory(); e != nil {

@@ -93,7 +93,7 @@ func newDispatcher(queueBuffer, workerCapacity, workers int) *dispatcher {
 	}
 }
 
-func (m *dispatcher) bootstrap() (e error) {
+func (m *dispatcher) bootstrap(noTimer bool) (e error) {
 	gLog.Debug().Msg("dispatcher initialization...")
 
 	var wg sync.WaitGroup
@@ -109,7 +109,7 @@ func (m *dispatcher) bootstrap() (e error) {
 	}
 
 	gLog.Debug().Msg("workers spawned successfully")
-	m.dispatch()
+	m.dispatch(noTimer)
 
 	fmt.Println("WAIT")
 	wg.Wait()
@@ -117,14 +117,19 @@ func (m *dispatcher) bootstrap() (e error) {
 	return
 }
 
-func (m *dispatcher) dispatch() {
+func (m *dispatcher) dispatch(noTimer bool) {
 	gLog.Debug().Msg("dispatcher start dispatching...")
 	gLog.Debug().Msg("dispatcher - entering in event loop")
 
 	var mu sync.RWMutex
 	var waitingWorkers int
 
+	// !!
 	var timer = time.NewTimer(5 * time.Second)
+	timer.Stop()
+	if !noTimer {
+		timer = time.NewTimer(5 * time.Second)
+	}
 
 	for {
 		select {
@@ -157,7 +162,7 @@ func (m *dispatcher) dispatch() {
 		// }
 		// }(Reset changes the timer to expire after duration d. It returns true if the timer had been active, false if the timer had expired or been stopped.)
 		case status := <-m.statusPipe:
-			if timer.Stop() {
+			if timer.Stop() && !noTimer {
 				gLog.Info().Msg("Timer stopped")
 			}
 
@@ -172,10 +177,13 @@ func (m *dispatcher) dispatch() {
 				mu.Unlock()
 			}
 
-			gLog.Debug().Msgf("STATUS active - %d;", waitingWorkers)
+			gLog.Debug().Bool("notimer", noTimer).Msgf("STATUS active - %d;", waitingWorkers)
 			if waitingWorkers == m.workers {
 				gLog.Info().Msg("Reset timer")
-				timer.Reset(5 * time.Second)
+
+				if !noTimer {
+					timer.Reset(5 * time.Second)
+				}
 			}
 		case <-timer.C:
 			gLog.Info().Msg("There is no jobs, closing dispatcher")
@@ -285,7 +293,7 @@ func (m *worker) doJob(j *job) {
 			return
 		}
 
-		gQueue.newJob(&job{
+		gUplQueue.newJob(&job{
 			action:  jobActUploadAsset,
 			payload: []interface{}{nxsTo, asset},
 		})
@@ -308,7 +316,7 @@ func (m *worker) doJob(j *job) {
 		nxs.incUploadedAssets()
 		gLog.Info().Msgf("Asset %s has been upload successfully.", asset.getHumanReadbleName())
 
-		gQueue.newJob(&job{
+		gUplQueue.newJob(&job{
 			action:  jobActDeleteAsset,
 			payload: []interface{}{nxs, asset},
 		})
