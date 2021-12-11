@@ -28,8 +28,9 @@ type nexus struct {
 	api      *nexusApi
 	tempPath string
 
-	mu               sync.RWMutex
-	assetsCollection []NexusAsset2
+	mu                       sync.RWMutex
+	assetsCollection         []NexusAsset2
+	dwnedAssets, upledAssets int
 }
 
 func newNexus() *nexus {
@@ -102,7 +103,7 @@ func (m *nexus) getRepositoryStatus() (e error) {
 }
 
 // !!
-// TODO WARN IS RESULT IS EMPTY !!
+// TODO WARN RESULT IS EMPTY !!
 func (m *nexus) getRepositoryAssetsRPC(path string) (e error) {
 	var rpcPayload = map[string]string{
 		"node":           path,
@@ -135,8 +136,16 @@ func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
 				payload: []interface{}{m, obj["id"].(string)},
 			})
 		case "component":
-			continue
+			gQueue.newJob(&job{
+				action:  jobActParseAsset,
+				payload: []interface{}{m, obj["id"].(string)},
+			})
 		case "asset":
+			if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(pom|md5|sha1|sha256|sha512))$", obj["id"].(string)); matched {
+				gLog.Debug().Msgf("The asset %s will be skipped!", obj["id"].(string))
+				continue
+			}
+
 			asset := newRpcAsset(obj)
 			m.mu.Lock()
 			m.assetsCollection = append(m.assetsCollection, asset)
@@ -230,6 +239,18 @@ func (m *nexus) parseRepositoryAssetInfoRPC(asset NexusAsset2, rsp *rpcRsp) (e e
 
 	return lastMsgId, e
 }*/
+
+func (m *nexus) incDownloadedAssets() {
+	m.mu.Lock()
+	m.dwnedAssets = m.dwnedAssets + 1
+	m.mu.Unlock()
+}
+
+func (m *nexus) incUploadedAssets() {
+	m.mu.Lock()
+	m.upledAssets = m.upledAssets + 1
+	m.mu.Unlock()
+}
 
 func (m *nexus) getRepositoryDataRPC(method string, data ...map[string]string) (rsp *rpcRsp, e error) {
 	var payload []byte
@@ -354,6 +375,51 @@ func (m *nexus) getTemporaryDirectory() string {
 }
 
 func (m *nexus) downloadMissingAssetsRPC(assets []NexusAsset2) (e error) {
+	var dwnListLen = len(assets)
+
+	gLog.Info().Msgf("There are %d marked for downloading.", dwnListLen)
+
+	if gCli.Bool("skip-download") {
+		gLog.Warn().Msg("Skipping downloading because of --skip-download flag received!")
+		return
+	}
+
+	for _, asset := range assets {
+		gQueue.newJob(&job{
+			action:  jobActDownloadAsset,
+			payload: []interface{}{m, asset},
+		})
+	}
+	return
+}
+
+func (m *nexus) uploadAssetRPC(asset NexusAsset2) (e error) {
+	return
+}
+
+func (m *nexus) downloadAssetRPC(asset NexusAsset2) (e error) {
+	var dwnUrl string
+	if dwnUrl, e = asset.getDownloadUrl(m.repository, m.endpoint); e != nil {
+		return
+	}
+
+	var fd *os.File
+	if fd, e = asset.getTemporaryFile(m.tempPath); e != nil {
+		return
+	}
+	defer fd.Close()
+
+	var rrl *url.URL
+	if rrl, e = url.Parse(dwnUrl); e != nil {
+		return
+	}
+
+	if e = m.api.getNexusFile(rrl.String(), fd); e != nil {
+		return
+		// gLog.Error().Err(e).Msgf("There is error while downloading asset. Asset %s will be skipped.", asset.getHumanReadbleName())
+	}
+
+	asset.setDownloaded()
 	return
 }
 
@@ -427,10 +493,12 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 
 		var fileApiMeta = make(map[string]io.Reader)
 		fileApiMeta["asset0"] = file
+		fileApiMeta["asset0.classifier"] = strings.NewReader(asset.Maven2.Classifier)
 		fileApiMeta["asset0.extension"] = strings.NewReader(asset.Maven2.Extension)
 		fileApiMeta["groupId"] = strings.NewReader(asset.Maven2.GroupID)
 		fileApiMeta["artifactId"] = strings.NewReader(asset.Maven2.ArtifactID)
 		fileApiMeta["version"] = strings.NewReader(asset.Maven2.Version)
+		fileApiMeta["generate-pom"] = strings.NewReader("on")
 
 		var body *bytes.Buffer
 		var contentType string

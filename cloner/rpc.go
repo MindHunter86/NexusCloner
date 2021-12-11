@@ -1,8 +1,14 @@
 package cloner
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -44,6 +50,10 @@ type (
 		Format      string         `json:"format,omitempty"`
 		Attributes  *rpcAssetAttrs `json:"attributes,omitempty"`
 		DownloadUrl string         `json:"downloadUrl,omitempty"`
+		ContentType string         `json:"contentType,omitempty"`
+
+		dwnedFd      *os.File
+		dwnedSuccess bool
 	}
 	rpcAssetAttrs struct {
 		Checksum *rpcAssetAttrsChecksum `json:"checksum,omitempty"`
@@ -60,6 +70,7 @@ type (
 		GroupId    string `json:"groupId,omitempty"`
 		ArtifactId string `json:"artifactId,omitempty"`
 		Version    string `json:"version,omitempty"`
+		Classifier string `json:"classifier,omitempty"`
 	}
 )
 
@@ -105,11 +116,24 @@ func (m *rpcAsset) catchPanic(err *error) {
 	}
 }
 
-func (m *rpcAsset) getDownloadUrl() (data string, e error) {
+func (m *rpcAsset) getDownloadUrl(reponame string, baseurl *url.URL) (data string, e error) {
 	defer m.catchPanic(&e)
 
 	if len(m.DownloadUrl) != 0 {
 		data = m.DownloadUrl
+	} else {
+		var drl *url.URL
+		if drl, e = baseurl.Parse(fmt.Sprintf("/repository/%s/%s", reponame, m.Name)); e != nil {
+			return
+		}
+
+		buf := strings.Split(drl.String(), "/")
+		bufLen := len(buf)
+		gLog.Debug().Msg("[DOWNLAODURL] parsed version - " + buf[bufLen-2])
+
+		data = strings.ReplaceAll(drl.String(), buf[bufLen-2]+"/", "")
+		gLog.Debug().Msg("Download URL - " + data)
+		// https://HOST/repository/maven-ums/ru/mts/tvhouse/tvh-core/1.0-M1-20181002.132713-41/tvh-core-1.0-M1-20181002.132713-41-sources.log
 	}
 
 	return
@@ -188,6 +212,7 @@ func (m *rpcAsset) isFileExists(tmpdir string) (file *os.File, e error) {
 // !! Note - returned FD must be closed!!
 func (m *rpcAsset) getTemporaryFile(tmpdir string) (file *os.File, e error) {
 	var filename = path.Base(m.Name)
+	defer func() { m.dwnedFd = file }()
 
 	if file, e = os.OpenFile(tmpdir+"/"+filename, os.O_RDWR|os.O_CREATE, 0600); e != nil {
 		if !errors.Is(e, os.ErrNotExist) {
@@ -199,8 +224,90 @@ func (m *rpcAsset) getTemporaryFile(tmpdir string) (file *os.File, e error) {
 		return
 	}
 
-	return os.Create(tmpdir + "/" + filename)
+	file, e = os.Create(tmpdir + "/" + filename)
+	return
 }
 
 // func (m *rpcAsset) downloadAsset() error                      {}
 // func (m *rpcAsset) getBinaryFile() (*os.File, error)          {}
+
+// struct compressing
+func (m *rpcAsset) compressAsset() ([]byte, error) {
+	return m.encodeAssetToBytes()
+}
+
+func restoreCompressedAsset(slice []byte) (NexusAsset2, error) {
+	asset := &rpcAsset{}
+	return asset.decompressAssetBytes(slice)
+}
+
+func (m *rpcAsset) encodeAssetToBytes() ([]byte, error) {
+	var e error
+	buffer := bytes.Buffer{}
+	encoder := gob.NewEncoder(&buffer)
+
+	if e = encoder.Encode(m); e != nil {
+		return nil, e
+	}
+
+	gLog.Debug().Msgf("uncompressed size (bytes): %d", len(buffer.Bytes()))
+	return m.compressAssetBytes(buffer.Bytes())
+}
+
+func (m *rpcAsset) compressAssetBytes(slice []byte) ([]byte, error) {
+	var e error
+	buffer := bytes.Buffer{}
+	gzipWriter := gzip.NewWriter(&buffer)
+	defer gzipWriter.Close()
+
+	if _, e := gzipWriter.Write(slice); e != nil {
+		return nil, e
+	}
+
+	gLog.Debug().Msgf("compressed size (bytes):", len(buffer.Bytes()))
+	return buffer.Bytes(), e
+}
+
+func (m *rpcAsset) decompressAssetBytes(slice []byte) (NexusAsset2, error) {
+	var e error
+	var encodedSlice []byte
+
+	var gzipReader *gzip.Reader
+	if gzipReader, e = gzip.NewReader(bytes.NewReader(slice)); e != nil {
+		return nil, e
+	}
+	defer gzipReader.Close()
+
+	if encodedSlice, e = ioutil.ReadAll(gzipReader); e != nil {
+		return nil, e
+	}
+
+	gLog.Debug().Msgf("uncompressed size (bytes): ", len(encodedSlice))
+	return m.decodeAssetFromBytes(encodedSlice)
+}
+
+func (m *rpcAsset) decodeAssetFromBytes(slice []byte) (NexusAsset2, error) {
+	var e error
+	decoder := gob.NewDecoder(bytes.NewReader(slice))
+
+	// Maybe it's bad idea and before decoding we need to create NexusAsset2 object.
+	// !! This block neew debugging and test
+	if e = decoder.Decode(&m); e != nil {
+		return nil, e
+	}
+
+	return m, e
+}
+
+// filesystem working
+func (m *rpcAsset) getAssetFd() *os.File { return m.dwnedFd }
+func (m *rpcAsset) isDownloaded() bool   { return m.dwnedSuccess }
+func (m *rpcAsset) setDownloaded()       { m.dwnedSuccess = true }
+
+func (m *rpcAsset) uploadAsset() (e error) {
+	return
+}
+
+func (m *rpcAsset) deleteAsset() (e error) {
+	return
+}

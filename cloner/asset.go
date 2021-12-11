@@ -3,6 +3,7 @@ package cloner
 import (
 	"encoding/json"
 	"errors"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -11,19 +12,19 @@ import (
 type NexusAsset2 interface {
 	getHumanReadbleName() string
 
-	// downloadAsset() error
-	isFileExists(string) (*os.File, error)
-
 	// getBinaryFile() (*os.File, error)
 	getTemporaryFile(string) (*os.File, error)
+	isFileExists(string) (*os.File, error)
 
-	getDownloadUrl() (string, error)
+	getDownloadUrl(string, *url.URL) (string, error)
 	getExtension() (string, error)
 	getGroupId() (string, error)
 	getArtifactId() (string, error)
 	getVersion() (string, error)
 	getId() (string, error)
+	getAssetFd() *os.File
 
+	setDownloaded()
 	addAttributes(map[string]json.RawMessage) error
 }
 
@@ -59,6 +60,7 @@ type (
 		GroupID    string `json:"groupId,omitempty"`
 		ArtifactID string `json:"artifactId,omitempty"`
 		Version    string `json:"version,omitempty"`
+		Classifier string `json:"classifier,omitempty"`
 	}
 )
 

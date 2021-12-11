@@ -13,6 +13,7 @@ const (
 	jobActFindAsset
 	jobActDownloadAsset
 	jobActUploadAsset
+	jobActDeleteAsset
 	jobActCustomFunc
 )
 
@@ -121,7 +122,7 @@ func (m *dispatcher) dispatch() {
 	gLog.Debug().Msg("dispatcher - entering in event loop")
 
 	var mu sync.RWMutex
-	var waitingWorkers, busyWorkers int
+	var waitingWorkers int
 
 	var timer = time.NewTimer(5 * time.Second)
 
@@ -156,20 +157,22 @@ func (m *dispatcher) dispatch() {
 		// }
 		// }(Reset changes the timer to expire after duration d. It returns true if the timer had been active, false if the timer had expired or been stopped.)
 		case status := <-m.statusPipe:
-			timer.Stop()
+			if timer.Stop() {
+				gLog.Info().Msg("Timer stopped")
+			}
+
 			switch status {
 			case wrkStatusBusy:
 				mu.Lock()
 				waitingWorkers = waitingWorkers - 1
-				// busyWorkers = busyWorkers + 1
 				mu.Unlock()
 			case wrkStatusWaiting:
 				mu.Lock()
 				waitingWorkers = waitingWorkers + 1
-				// busyWorkers = busyWorkers - 1
 				mu.Unlock()
 			}
-			gLog.Debug().Msgf("STATUS active - %d; busy - %d", waitingWorkers, busyWorkers)
+
+			gLog.Debug().Msgf("STATUS active - %d;", waitingWorkers)
 			if waitingWorkers == m.workers {
 				gLog.Info().Msg("Reset timer")
 				timer.Reset(5 * time.Second)
@@ -263,7 +266,36 @@ func (m *worker) doJob(j *job) {
 		}
 	case jobActFindAsset:
 	case jobActDownloadAsset:
+		nexus := j.payload[0].(*nexus)
+		asset := j.payload[1].(NexusAsset2)
+
+		if e := nexus.downloadAssetRPC(asset); e != nil {
+			m.errors <- j.newError(e)
+		}
+
+		nexus.incDownloadedAssets()
+		gLog.Info().Msgf("Asset %s has been downloaded successfully.", asset.getHumanReadbleName())
+
+		if gCli.Bool("skip-upload") {
+			gLog.Warn().Msg("Skipping asset uploading because of --skip-upload flag received")
+			return
+		}
+
+		gQueue.newJob(&job{
+			action:  jobActUploadAsset,
+			payload: []interface{}{nexus, asset},
+		})
 	case jobActUploadAsset:
+		nexus := j.payload[0].(*nexus)
+		asset := j.payload[1].(NexusAsset2)
+
+		if e := nexus.uploadAssetRPC(asset); e != nil {
+			return
+		}
+
+		nexus.incUploadedAssets()
+		gLog.Info().Msgf("Asset %s has been upload successfully.", asset.getHumanReadbleName())
+
 		// case jobActCustomFunc:
 		// 	if j.payloadFunc != nil {
 		// 		if e := j.payloadFunc(j.payload); e != nil {

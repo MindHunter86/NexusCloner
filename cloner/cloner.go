@@ -29,7 +29,7 @@ var (
 )
 
 var (
-	errClNoMissAssets = errors.New("There is no missing assets detected. Repository sinchronization is not needed.")
+	errClNoMissAssets = errors.New("There is no missing assets detected. Repository synchronization is not needed.")
 )
 
 func NewCloner(l *zerolog.Logger) *Cloner {
@@ -103,6 +103,14 @@ LOOP:
 				gLog.Error().Err(e).Msg("Fatal Runtime Error!!! Abnormal application closing ...")
 				break LOOP
 			}
+
+			gLog.Info().Msgf("Found %d assets in src and %d in dst", len(m.srcNexus.assetsCollection), len(m.dstNexus.assetsCollection))
+
+			if e = m.syncRPC(ep); e != nil {
+				break LOOP
+			}
+
+			break LOOP
 		}
 	}
 
@@ -114,15 +122,28 @@ LOOP:
 	return e
 }
 
-func (m *Cloner) syncRPC(srcNexus, dstNexus *nexus) (e error) {
+func (m *Cloner) syncRPC(ep chan error) (e error) {
 	var missAssets []NexusAsset2
-	if missAssets = m.getMissingAssetsRPC(srcNexus.assetsCollection, dstNexus.assetsCollection); len(missAssets) == 0 {
+	if missAssets = m.getMissingAssetsRPC(m.srcNexus.assetsCollection, m.dstNexus.assetsCollection); len(missAssets) == 0 {
 		return errClNoMissAssets
 	}
 
-	if gCli.Bool("skip-download") {
-		return
-	}
+	// if gCli.Bool("skip-download") {
+	// 	return
+	// }
+
+	// dispathcer restart
+	var wg sync.WaitGroup
+	m.mainDispatcher = newDispatcher(gCli.Int("queue-buffer"), gCli.Int("queue-workers-capacity"), gCli.Int("queue-workers"))
+	gQueue = m.mainDispatcher
+
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+
+		gLog.Info().Msg("Main queue spawning ...")
+		ep <- m.mainDispatcher.bootstrap()
+	}()
 
 	if e = m.srcNexus.createTemporaryDirectory(); e != nil {
 		return
@@ -132,21 +153,7 @@ func (m *Cloner) syncRPC(srcNexus, dstNexus *nexus) (e error) {
 		return
 	}
 
-	//
-	// if e = m.srcNexus.downloadMissingAssets(missAssets); e != nil {
-	// 	return
-	// }
-
-	// // 4. Uplaod missed assets
-	// if gCli.Bool("skip-upload") {
-	// 	return
-	// }
-
-	// m.dstNexus.setTemporaryDirectory(m.srcNexus.getTemporaryDirectory())
-	// if e = m.dstNexus.uploadMissingAssets(missAssets); e != nil {
-	// 	return
-	// }
-
+	wg.Wait()
 	return
 }
 
@@ -212,7 +219,7 @@ func (m *Cloner) getMissingAssetsRPC(srcCollection, dstCollection []NexusAsset2)
 	}
 
 	for _, asset := range srcCollection {
-		if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(md5|sha1|sha256|sha512))$", asset.getHumanReadbleName()); matched {
+		if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(pom|md5|sha1|sha256|sha512))$", asset.getHumanReadbleName()); matched {
 			gLog.Debug().Msgf("The asset %s will be skipped!", asset.getHumanReadbleName())
 			continue
 		}
