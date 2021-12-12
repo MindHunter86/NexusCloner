@@ -135,6 +135,11 @@ func (m *nexus) getRepositoryAssets() (assets []*NexusAsset, e error) {
 
 		for _, asset := range rsp.Items {
 			if r.MatchString(asset.Path) {
+				if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(pom|md5|sha1|sha256|sha512))$", asset.Path); matched {
+					gLog.Debug().Msgf("The asset %s will be skipped!", asset.Path)
+					continue
+				}
+
 				gLog.Debug().Str("path", asset.Path).Msg("Asset path matched!")
 				assets = append(assets, asset)
 			} else {
