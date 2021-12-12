@@ -108,6 +108,7 @@ func (m *Cloner) getMetaFromRepositories() (srcAssets, dstAssets []*NexusAsset, 
 
 func (m *Cloner) getMissingAssets(srcACollection, dstACollection []*NexusAsset) (missingAssets []*NexusAsset) {
 	var dstAssets = make(map[string]*NexusAsset, len(dstACollection))
+	var skippedAssets int
 
 	gLog.Debug().Int("srcColl", len(srcACollection)).Int("dstColl", len(dstACollection)).Msg("Starting search of missing assets")
 
@@ -116,8 +117,9 @@ func (m *Cloner) getMissingAssets(srcACollection, dstACollection []*NexusAsset) 
 	}
 
 	for _, asset := range srcACollection {
-		if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(md5|sha1|sha256|sha512))$", asset.getHumanReadbleName()); matched {
+		if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(pom|md5|sha1|sha256|sha512))$", asset.getHumanReadbleName()); matched {
 			gLog.Debug().Msgf("The asset %s will be skipped!", asset.getHumanReadbleName())
+			skippedAssets = skippedAssets + 1
 			continue
 		}
 
