@@ -278,13 +278,17 @@ func (m *Cloner) getMissingAssetsRPC(srcCollection, dstCollection []NexusAsset2)
 
 			var matched bool
 			switch {
-			case sHashes["md5"] == dHashes["md5"]:
-				fallthrough
+			// case sHashes["md5"] == dHashes["md5"]:
+			// 	gLog.Debug().Str("hash", "md5").Msgf("ASSET OK %s - %s", sHashes["md5"], dHashes["md5"])
+			// 	matched = true
 			case sHashes["sha1"] == dHashes["sha1"]:
-				fallthrough
+				gLog.Debug().Str("hash", "sha1").Msgf("ASSET OK %s - %s", sHashes["sha1"], dHashes["sha1"])
+				matched = true
 			case sHashes["sha256"] == dHashes["sha256"]:
-				fallthrough
+				gLog.Debug().Str("hash", "sha256").Msgf("ASSET OK %s - %s", sHashes["sha256"], dHashes["sha256"])
+				matched = true
 			case sHashes["sha512"] == dHashes["sha512"]:
+				gLog.Debug().Str("hash", "sha512").Msgf("ASSET OK %s - %s", sHashes["sha512"], dHashes["sha512"])
 				matched = true
 			}
 
