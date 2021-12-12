@@ -135,6 +135,7 @@ func (m *Cloner) getMissingAssets(srcACollection, dstACollection []*NexusAsset) 
 	}
 
 	gLog.Info().Msgf("There are %d missing assets in destination repository. Filelist u can see in debug logs.", len(missingAssets))
+	gLog.Info().Msgf("%d assets was skipped because of regexp match.", skippedAssets)
 	return
 }
 
