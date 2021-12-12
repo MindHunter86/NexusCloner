@@ -73,6 +73,18 @@ func main() {
 
 		// Application options
 		cli.BoolFlag{
+			Name:  "skip-verify-hashes",
+			Usage: "",
+		},
+		// cli.BoolFlag{
+		// 	Name:  "verify-only",
+		// 	Usage: "",
+		// },
+		cli.BoolFlag{
+			Name:  "verify-errors-ignore",
+			Usage: "",
+		},
+		cli.BoolFlag{
 			Name:  "skip-download",
 			Usage: "Skip download after finding missing assets. Flag for debugging only.",
 		},

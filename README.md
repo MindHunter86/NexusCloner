@@ -112,7 +112,7 @@ There is no test files, sorry =(
 
 ## Known issues
 
-## Suported (tested) nexus versions
+## Suported (tested on) nexus versions
 Tested on OSS 3.30.1-01 and OSS 3.16.1-02
 
 ## Usage page

@@ -107,7 +107,7 @@ func (m *rpcAsset) addAttributes(rpcObject map[string]json.RawMessage) (e error)
 	// m.Attributes = &attrPayload
 	// gLog.Debug().Msgf("filename %s : sha1 - %s", m.Name, attrPayload.Checksum.Sha1)
 	m.Attributes = assetAttrs
-	gLog.Debug().Msgf("filename %s : sha1 - %s", m.Name, assetAttrs.Checksum.Sha1)
+	gLog.Debug().Msgf("filename %s : sha1 - %s", m.Name, m.Attributes.Checksum.Sha1)
 	return
 }
 
@@ -204,6 +204,29 @@ func (m *rpcAsset) getBaseVersion() (data string, e error) {
 
 	if len(m.Attributes.Maven2.BaseVersion) != 0 {
 		data = m.Attributes.Maven2.BaseVersion
+	}
+
+	return
+}
+
+func (m *rpcAsset) getHashes() (data map[string]string, e error) {
+	defer m.catchPanic(&e)
+	data = make(map[string]string)
+
+	if len(m.Attributes.Checksum.Md5) != 0 {
+		data["md5"] = m.Attributes.Checksum.Md5
+	}
+
+	if len(m.Attributes.Checksum.Sha1) != 0 {
+		data["sha1"] = m.Attributes.Checksum.Sha1
+	}
+
+	if len(m.Attributes.Checksum.Sha256) != 0 {
+		data["sha256"] = m.Attributes.Checksum.Sha256
+	}
+
+	if len(m.Attributes.Checksum.Sha512) != 0 {
+		data["sha512"] = m.Attributes.Checksum.Sha512
 	}
 
 	return

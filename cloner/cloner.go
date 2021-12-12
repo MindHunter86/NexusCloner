@@ -2,7 +2,6 @@ package cloner
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"regexp"
@@ -124,7 +123,6 @@ LOOP:
 	m.mainDispatcher.destroy()
 	m.uplDispatcher.destroy()
 	wg.Wait()
-	fmt.Println("OKOK")
 
 	// return m.sync()
 	return e
@@ -244,6 +242,59 @@ func (m *Cloner) getMissingAssetsRPC(srcCollection, dstCollection []NexusAsset2)
 
 		if _, found := dstAssets[asset.getHumanReadbleName()]; !found {
 			missAssets = append(missAssets, asset)
+			continue
+		}
+
+		if !gCli.Bool("skip-verify-hashes") {
+			var e error
+			var sHashes, dHashes map[string]string
+
+			if sHashes, e = asset.getHashes(); e != nil {
+				gLog.Error().Err(e).Msg("There is some problems with taking source asset hashes!")
+
+				if gCli.Bool("verify-errors-ignore") {
+					missAssets = append(missAssets, asset)
+					continue
+				}
+			}
+
+			if dHashes, e = dstAssets[asset.getHumanReadbleName()].getHashes(); e != nil {
+				gLog.Error().Err(e).Msg("There is some problems with taking dest asset hashes!")
+
+				if gCli.Bool("verify-errors-ignore") {
+					missAssets = append(missAssets, asset)
+					continue
+				}
+			}
+
+			if len(sHashes) == 0 || len(dHashes) == 0 {
+				gLog.Warn().Msg("There are no hashes for given asset! Are hashes are enabled on Nexus instances?")
+
+				if gCli.Bool("verify-errors-ignore") {
+					missAssets = append(missAssets, asset)
+					continue
+				}
+			}
+
+			var matched bool
+			switch {
+			case sHashes["md5"] == dHashes["md5"]:
+				fallthrough
+			case sHashes["sha1"] == dHashes["sha1"]:
+				fallthrough
+			case sHashes["sha256"] == dHashes["sha256"]:
+				fallthrough
+			case sHashes["sha512"] == dHashes["sha512"]:
+				matched = true
+			}
+
+			if matched {
+				continue
+			}
+
+			gLog.Debug().Msgf("There is no matched hashes for asset %s. Tasking for file rewriting.", asset.getHumanReadbleName())
+			missAssets = append(missAssets, asset)
+			continue
 		}
 	}
 

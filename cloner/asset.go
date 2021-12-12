@@ -26,6 +26,7 @@ type NexusAsset2 interface {
 	getAssetFd() *os.File
 	getClassifier() (string, error)
 	getBaseVersion() (string, error)
+	getHashes() (map[string]string, error)
 
 	addAttributes(map[string]json.RawMessage) error
 	setDownloaded()
