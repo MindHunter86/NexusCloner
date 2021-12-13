@@ -96,6 +96,14 @@ func main() {
 			Name:  "skip-upload",
 			Usage: "Skip upload after downloading missing assets. Flag for debugging only.",
 		},
+		cli.BoolFlag{
+			Name:  "skip-pom-upload",
+			Usage: "",
+		},
+		cli.BoolFlag{
+			Name:  "maven-snapshots",
+			Usage: "",
+		},
 		cli.StringFlag{
 			Name:  "path-filter",
 			Usage: "Regexp value with `path` for syncing.",

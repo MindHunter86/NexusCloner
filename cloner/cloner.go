@@ -41,6 +41,7 @@ func NewCloner(l *zerolog.Logger) *Cloner {
 func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 	gCli = ctx
 
+	// !!
 	if strings.ToLower(gCli.String("loglevel")) == "debug" {
 		gIsDebug = true
 	}
@@ -234,8 +235,13 @@ func (m *Cloner) getMissingAssetsRPC(srcCollection, dstCollection []NexusAsset2)
 		dstAssets[asset.getHumanReadbleName()] = asset
 	}
 
+	var reg string = "((maven-metadata\\.xml)|\\.(md5|sha1|sha256|sha512))$"
+	if gCli.Bool("skip-pom-upload") {
+		reg = "((maven-metadata\\.xml)|\\.(pom|md5|sha1|sha256|sha512))$"
+	}
+
 	for _, asset := range srcCollection {
-		if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(pom|md5|sha1|sha256|sha512))$", asset.getHumanReadbleName()); matched {
+		if matched, _ := regexp.MatchString(reg, asset.getHumanReadbleName()); matched {
 			gLog.Debug().Msgf("The asset %s will be skipped!", asset.getHumanReadbleName())
 			continue
 		}

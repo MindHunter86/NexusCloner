@@ -141,7 +141,12 @@ func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
 				payload: []interface{}{m, obj["id"].(string)},
 			})
 		case "asset":
-			if matched, _ := regexp.MatchString("((maven-metadata\\.xml)|\\.(pom|md5|sha1|sha256|sha512))$", obj["id"].(string)); matched {
+			var reg string = "((maven-metadata\\.xml)|\\.(md5|sha1|sha256|sha512))$"
+			if gCli.Bool("skip-pom-upload") {
+				reg = "((maven-metadata\\.xml)|\\.(pom|md5|sha1|sha256|sha512))$"
+			}
+
+			if matched, _ := regexp.MatchString(reg, obj["id"].(string)); matched {
 				gLog.Debug().Msgf("The asset %s will be skipped!", obj["id"].(string))
 				continue
 			}

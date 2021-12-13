@@ -128,11 +128,15 @@ func (m *rpcAsset) getDownloadUrl(reponame string, baseurl *url.URL) (data strin
 			return
 		}
 
-		buf := strings.Split(drl.String(), "/")
-		bufLen := len(buf)
-		gLog.Debug().Msg("[DOWNLAODURL] parsed version - " + buf[bufLen-2])
+		if gCli.Bool("maven-snapshots") {
+			buf := strings.Split(drl.String(), "/")
+			bufLen := len(buf)
+			gLog.Debug().Msg("[DOWNLOADURL] parsed version - " + buf[bufLen-2])
 
-		data = strings.ReplaceAll(drl.String(), buf[bufLen-2]+"/", "")
+			data = strings.ReplaceAll(drl.String(), buf[bufLen-2]+"/", "")
+		}
+
+		data = drl.String()
 		gLog.Debug().Msg("Download URL - " + data)
 		// https://HOST/repository/maven-ums/ru/mts/tvhouse/tvh-core/1.0-M1-20181002.132713-41/tvh-core-1.0-M1-20181002.132713-41-sources.log
 	}
