@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -41,10 +40,7 @@ func NewCloner(l *zerolog.Logger) *Cloner {
 func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 	gCli = ctx
 
-	// !!
-	if strings.ToLower(gCli.String("loglevel")) == "debug" {
-		gIsDebug = true
-	}
+	gIsDebug = gCli.Bool("debug")
 
 	var e error
 	if m.srcNexus, e = newNexus().initiate(gCli.Args().Get(0)); e != nil {

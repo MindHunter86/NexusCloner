@@ -45,6 +45,10 @@ func main() {
 			Usage: "Verbose `LEVEL` (value from 5(debug) to 0(panic) and -1 for log disabling(quite mode))",
 		},
 		cli.BoolFlag{
+			Name:  "debug",
+			Usage: "",
+		},
+		cli.BoolFlag{
 			Name:  "quite, q",
 			Usage: "Flag is equivalent to verbose -1",
 		},
