@@ -9,6 +9,8 @@ Repository cloning tool for nexus
    - [Two and more repositories](#two-and-more-repositories)
    - [Path filtering](#path-filtering)
 - [Testing](#testing)
+- [Known issues](#known-issues)
+- [Supported nexus versions](#suported-nexus-versions)
 - [Usage page](#usage-page)
 
 ----
@@ -95,11 +97,23 @@ Or you need sync *ONLY* artifacts from public path:
 With regexp you can do any magic.
 
 
+## Collectors method and motivation (english bad, check grammar and spelling)
+There are 2 supported methods for asset collection.  
+The first method is asset collection via Nexus API. In some situations this method can be slow. In my Nexus installation source nexus had over 200k files in specific path (see --path-filter option). In that installation Nexis Assets API had 20-30 second responses. For this situation I wrote the second method of asset collection.  
+The second method is collection via Nexus RPC. As I saw, there is no documentation for it. This RPC used for Nexus UI (called CoreUI). You can see this protocol, if open developer tools on your Nexus UI. This method used https://HOST:PORT/service/extdirect endpoint for communication with Nexus. In my "tests" path with ~200k files collected in 60 - 120 second. Each response from NExus via this rpc has taken over 20 - 80 ms.  
+By default the application is use API for all communications with Nexus. If you have some troubles with this method, try RPC with --skip-download and --skip-upload for verifing that RPC method has no crashes with your Nexus installation.
+
+
+## Upload method and rebuild repository metadata
+Repair - Rebuild Maven repository metadata (maven-metadata.xml)
+
 ## Testing
 There is no test files, sorry =(
 
 ## Known issues
 
+## Suported (tested on) nexus versions
+Tested on OSS 3.30.1-01 and OSS 3.16.1-02
 
 ## Usage page
 

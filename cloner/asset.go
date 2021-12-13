@@ -1,11 +1,37 @@
 package cloner
 
 import (
+	"encoding/json"
 	"errors"
+	"net/url"
 	"os"
 	"path"
 	"strings"
 )
+
+type NexusAsset2 interface {
+	getHumanReadbleName() string
+
+	// getBinaryFile() (*os.File, error)
+	getTemporaryFile(string) (*os.File, error)
+	isFileExists(string) (*os.File, error)
+	getTemporaryFilePath(string) (string, error)
+
+	getDownloadUrl(string, *url.URL) (string, error)
+	getExtension() (string, error)
+	getGroupId() (string, error)
+	getArtifactId() (string, error)
+	getVersion() (string, error)
+	getId() (string, error)
+	getAssetFd() *os.File
+	getClassifier() (string, error)
+	getBaseVersion() (string, error)
+	getHashes() (map[string]string, error)
+
+	addAttributes(map[string]json.RawMessage) error
+	setDownloaded()
+	deleteAsset()
+}
 
 type (
 	NexusAssetsCollection struct {
@@ -39,6 +65,7 @@ type (
 		GroupID    string `json:"groupId,omitempty"`
 		ArtifactID string `json:"artifactId,omitempty"`
 		Version    string `json:"version,omitempty"`
+		Classifier string `json:"classifier,omitempty"`
 	}
 )
 

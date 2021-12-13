@@ -45,6 +45,10 @@ func main() {
 			Usage: "Verbose `LEVEL` (value from 5(debug) to 0(panic) and -1 for log disabling(quite mode))",
 		},
 		cli.BoolFlag{
+			Name:  "debug",
+			Usage: "",
+		},
+		cli.BoolFlag{
 			Name:  "quite, q",
 			Usage: "Flag is equivalent to verbose -1",
 		},
@@ -73,6 +77,18 @@ func main() {
 
 		// Application options
 		cli.BoolFlag{
+			Name:  "skip-verify-hashes",
+			Usage: "",
+		},
+		// cli.BoolFlag{
+		// 	Name:  "verify-only",
+		// 	Usage: "",
+		// },
+		cli.BoolFlag{
+			Name:  "verify-errors-ignore",
+			Usage: "",
+		},
+		cli.BoolFlag{
 			Name:  "skip-download",
 			Usage: "Skip download after finding missing assets. Flag for debugging only.",
 		},
@@ -84,10 +100,43 @@ func main() {
 			Name:  "skip-upload",
 			Usage: "Skip upload after downloading missing assets. Flag for debugging only.",
 		},
+		cli.BoolFlag{
+			Name:  "skip-pom-upload",
+			Usage: "",
+		},
+		cli.BoolFlag{
+			Name:  "maven-snapshots",
+			Usage: "",
+		},
 		cli.StringFlag{
 			Name:  "path-filter",
 			Usage: "Regexp value with `path` for syncing.",
 			Value: ".*",
+		},
+		cli.BoolFlag{
+			Name:  "use-put-upload",
+			Usage: "Use PUT asset upload instead of POST via API.",
+		},
+		cli.BoolFlag{
+			Name:  "use-rpc",
+			Usage: "Use RPC protocol for assets collection on source nexus server. Unstable, testing feature.",
+		},
+		cli.StringFlag{
+			Name:  "rpc-endpoint",
+			Usage: "Define RPC endpoint for assets collection",
+			Value: "/service/extdirect",
+		},
+		cli.IntFlag{
+			Name:  "queue-buffer",
+			Value: 1024000,
+		},
+		cli.IntFlag{
+			Name:  "queue-workers",
+			Value: 25,
+		},
+		cli.IntFlag{
+			Name:  "queue-workers-capacity",
+			Value: 32,
 		},
 	}
 

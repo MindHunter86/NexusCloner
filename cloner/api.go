@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -104,7 +105,7 @@ func (m *nexusApi) getNexusFile(url string, file *os.File) (e error) {
 	return
 }
 
-func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType string) (e error) {
+func (m *nexusApi) postNexusFile(url string, body *bytes.Buffer, contentType string) (e error) {
 	var req *http.Request
 	if req, e = http.NewRequest("POST", url, body); e != nil {
 		return
@@ -119,6 +120,7 @@ func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType stri
 	if rsp, e = m.Client.Do(req); e != nil {
 		return
 	}
+	defer rsp.Body.Close()
 
 	if gIsDebug {
 		// fmt.Println(m.dumpNexusRequest(req))
@@ -126,6 +128,32 @@ func (m *nexusApi) putNexusFile(url string, body *bytes.Buffer, contentType stri
 	}
 
 	if rsp.StatusCode != http.StatusOK && rsp.StatusCode != http.StatusNoContent {
+		tmp, _ := ioutil.ReadAll(rsp.Body)
+		fmt.Println(string(tmp))
+		gLog.Warn().Int("status", rsp.StatusCode).Msg("Abnormal API response! Check it immediately!")
+		return nxsErrRq404
+	}
+
+	return
+}
+
+func (m *nexusApi) putNexusFile(url string, body io.Reader) (e error) {
+	var req *http.Request
+	if req, e = http.NewRequest("PUT", url, body); e != nil {
+		return
+	}
+
+	m.authorizeNexusRequest(req)
+
+	var rsp *http.Response
+	if rsp, e = m.Client.Do(req); e != nil {
+		return
+	}
+	defer rsp.Body.Close()
+
+	if rsp.StatusCode != http.StatusCreated {
+		tmp, _ := ioutil.ReadAll(rsp.Body)
+		fmt.Println(string(tmp))
 		gLog.Warn().Int("status", rsp.StatusCode).Msg("Abnormal API response! Check it immediately!")
 		return nxsErrRq404
 	}

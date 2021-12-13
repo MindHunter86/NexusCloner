@@ -2,7 +2,9 @@ package cloner
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -11,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 var (
@@ -21,10 +24,13 @@ var (
 type nexus struct {
 	endpoint         *url.URL
 	repository, path string
-	assetsCollection []*NexusAsset
 
 	api      *nexusApi
 	tempPath string
+
+	mu                       sync.RWMutex
+	assetsCollection         []NexusAsset2
+	dwnedAssets, upledAssets int
 }
 
 func newNexus() *nexus {
@@ -92,6 +98,198 @@ func (m *nexus) getRepositoryStatus() (e error) {
 		gLog.Error().Err(e).Msg("There is some troubles with repository availability")
 		return
 	}
+
+	return
+}
+
+// !!
+// TODO WARN RESULT IS EMPTY !!
+func (m *nexus) getRepositoryAssetsRPC(path string) (e error) {
+	var rpcPayload = map[string]string{
+		"node":           path,
+		"repositoryName": m.repository,
+	}
+
+	var rpcResponse *rpcRsp
+	if rpcResponse, e = m.getRepositoryDataRPC("read", rpcPayload); e != nil {
+		return
+	}
+
+	return m.parseRepositoryAssetsRPC(rpcResponse)
+}
+
+func (m *nexus) parseRepositoryAssetsRPC(rsp *rpcRsp) (e error) {
+	var rspResult *rpcRspResult
+	if e = json.Unmarshal(rsp.Result, &rspResult); e != nil {
+		return
+	}
+
+	if !rspResult.Success {
+		gLog.Warn().Msg("There is some errors in parsing RPC response. Api said that Result.Success is false!")
+	}
+
+	for _, obj := range rspResult.Data {
+		switch obj["type"].(string) {
+		case "folder":
+			gQueue.newJob(&job{
+				action:  jobActParseAsset,
+				payload: []interface{}{m, obj["id"].(string)},
+			})
+		case "component":
+			gQueue.newJob(&job{
+				action:  jobActParseAsset,
+				payload: []interface{}{m, obj["id"].(string)},
+			})
+		case "asset":
+			var reg string = "((maven-metadata\\.xml)|\\.(md5|sha1|sha256|sha512))$"
+			if gCli.Bool("skip-pom-upload") {
+				reg = "((maven-metadata\\.xml)|\\.(pom|md5|sha1|sha256|sha512))$"
+			}
+
+			if matched, _ := regexp.MatchString(reg, obj["id"].(string)); matched {
+				gLog.Debug().Msgf("The asset %s will be skipped!", obj["id"].(string))
+				continue
+			}
+
+			asset := newRpcAsset(obj)
+			m.mu.Lock()
+			m.assetsCollection = append(m.assetsCollection, asset)
+			assetsLen := len(m.assetsCollection)
+			m.mu.Unlock()
+			gLog.Debug().Int("count", assetsLen).Msgf("New asset collected! %s", asset.Name)
+			gQueue.newJob(&job{
+				action:  jobActGetAsset,
+				payload: []interface{}{m, asset},
+			})
+		}
+	}
+
+	return
+}
+
+// !!
+// TODO REFACTOR !!!
+func (m *nexus) getRepositoryAssetInfo(asset NexusAsset2) (e error) {
+	assetId, e := asset.getId()
+	if e != nil {
+		return
+	}
+
+	var rpcPayload = map[string]string{
+		"0": assetId,
+		"1": m.repository,
+	}
+
+	var rpcResponse *rpcRsp
+	if rpcResponse, e = m.getRepositoryDataRPC("readAsset", rpcPayload); e != nil {
+		return
+	}
+
+	if rpcResponse.ServerException != nil || len(rpcResponse.Message) != 0 {
+		fmt.Println(rpcResponse.method + " " + string(rpcResponse.payload))
+		fmt.Println(string(rpcResponse.Result))
+		gLog.Error().Msg(rpcResponse.Message)
+		gLog.Debug().Interface("ERR", rpcResponse.ServerException)
+		return errRpcClientIntErr
+	}
+
+	return m.parseRepositoryAssetInfoRPC(asset, rpcResponse)
+}
+
+func (m *nexus) parseRepositoryAssetInfoRPC(asset NexusAsset2, rsp *rpcRsp) (e error) {
+	var rspResult *rpcRspAssetResult
+	if e = json.Unmarshal(rsp.Result, &rspResult); e != nil {
+		fmt.Println(rsp.method + " " + string(rsp.payload))
+		fmt.Println(string(rsp.Result))
+		return
+	}
+
+	if !rspResult.Success {
+		gLog.Warn().Msg("There is some errors in parsing RPC response. Api said that Result.Success is false!")
+	}
+
+	return asset.addAttributes(rspResult.Data)
+}
+
+/*func (m *ICQApi) parseChatMessagesResponse(chatId string, messages []*getHistoryRspResultMessage) (lastMsgId uint64, e error) {
+
+	// if no messages - exit
+	if len(messages) == 0 {
+		return 0, e
+	}
+
+	lastMsgId = messages[len(messages)-1].MsgId
+	for _, v := range messages {
+		gDBQueue <- &job{
+			action:  jobActCustomFunc,
+			payload: []interface{}{v},
+			payloadFunc: func(args []interface{}) error {
+				var message = args[0].(*getHistoryRspResultMessage)
+				return gMongoDB.UpdateOne("chats", bson.M{
+					"aimId": chatId,
+				}, bson.M{
+					"$push": bson.M{
+						"messages": &mongodb.CollectionChatsMessage{
+							MsgId:  message.MsgId,
+							Time:   time.Unix(message.Time, 0),
+							Wid:    message.Wid,
+							Sender: message.Chat.Sender,
+							Text:   message.Text,
+						},
+					},
+				})
+			},
+		}
+	}
+
+	return lastMsgId, e
+}*/
+
+func (m *nexus) incDownloadedAssets() {
+	m.mu.Lock()
+	m.dwnedAssets = m.dwnedAssets + 1
+	m.mu.Unlock()
+}
+
+func (m *nexus) incUploadedAssets() {
+	m.mu.Lock()
+	m.upledAssets = m.upledAssets + 1
+	m.mu.Unlock()
+}
+
+func (m *nexus) getRepositoryDataRPC(method string, data ...map[string]string) (rsp *rpcRsp, e error) {
+	var payload []byte
+
+	switch method {
+	case "read":
+		if payload, e = gRpc.newRpcJsonRequest(method, "coreui_Browse", data); e != nil {
+			return
+		}
+	case "readAsset":
+		var body = []string{
+			data[0]["0"],
+			data[0]["1"],
+		}
+		if payload, e = gRpc.newRpcJsonRequest(method, "coreui_Component", body); e != nil {
+			return
+		}
+		// default:
+		// 	if payload, e = gRpc.newRpcJsonRequest(method, "coreui_Component", data[0]); e != nil {
+		// 		return
+		// 	}
+	}
+
+	var rrl *url.URL
+	if rrl, e = m.endpoint.Parse(gCli.String("rpc-endpoint")); e != nil {
+		return
+	}
+
+	if e = gRpc.postRpcRequest(rrl.String(), payload, &rsp); e != nil {
+		return
+	}
+
+	rsp.payload = payload
+	rsp.method = method
 
 	return
 }
@@ -186,6 +384,56 @@ func (m *nexus) getTemporaryDirectory() string {
 	return m.tempPath
 }
 
+func (m *nexus) downloadMissingAssetsRPC(assets []NexusAsset2, dstNexus *nexus) (e error) {
+	if gIsDebug {
+		for _, asset := range assets {
+			gLog.Debug().Msgf("Asset %s marked for downloading", asset.getHumanReadbleName())
+		}
+	}
+
+	var dwnListLen = len(assets)
+	gLog.Info().Msgf("There are %d marked for downloading.", dwnListLen)
+
+	if gCli.Bool("skip-download") {
+		gLog.Warn().Msg("Skipping downloading because of --skip-download flag received!")
+		return
+	}
+
+	for _, asset := range assets {
+		gQueue.newJob(&job{
+			action:  jobActDownloadAsset,
+			payload: []interface{}{m, asset, dstNexus},
+		})
+	}
+	return
+}
+
+func (m *nexus) downloadAssetRPC(asset NexusAsset2) (e error) {
+	var dwnUrl string
+	if dwnUrl, e = asset.getDownloadUrl(m.repository, m.endpoint); e != nil {
+		return
+	}
+
+	var fd *os.File
+	if fd, e = asset.getTemporaryFile(m.tempPath); e != nil {
+		return
+	}
+	defer fd.Close()
+
+	var rrl *url.URL
+	if rrl, e = url.Parse(dwnUrl); e != nil {
+		return
+	}
+
+	if e = m.api.getNexusFile(rrl.String(), fd); e != nil {
+		return
+		// gLog.Error().Err(e).Msgf("There is error while downloading asset. Asset %s will be skipped.", asset.getHumanReadbleName())
+	}
+
+	asset.setDownloaded()
+	return
+}
+
 // TODO
 // show download progress
 // https://golangcode.com/download-a-file-with-progress/ - example
@@ -228,6 +476,105 @@ func (m *nexus) downloadMissingAssets(assets []*NexusAsset) (e error) {
 	return nil
 }
 
+func (m *nexus) deleteAssetTemporaryFile(asset NexusAsset2) (e error) {
+	var filepath string
+	if filepath, e = asset.getTemporaryFilePath(m.tempPath); e != nil {
+		return
+	}
+
+	if e = os.Remove(filepath); e != nil {
+		gLog.Error().Msg("Could not delete file!")
+		return
+	}
+
+	gLog.Debug().Msg("Uploaded assets has been successfully deleted from local filesystem.")
+	asset.deleteAsset()
+	runtime.GC()
+	return
+}
+
+// if used it, do not forget about "Repair - Rebuild Maven repository metadata (maven-metadata.xml)" task
+func (m *nexus) uploadAssetHttpFormatRPC(asset NexusAsset2) (e error) {
+	var fd *os.File
+	if fd, e = asset.isFileExists(m.tempPath); e != nil {
+		return
+	}
+	defer fd.Close()
+
+	var assetReqUri string
+	if assetReqUri, e = asset.getDownloadUrl(m.repository, m.endpoint); e != nil {
+		return
+	}
+
+	var rrl *url.URL
+	if rrl, e = url.Parse(assetReqUri); e != nil {
+		return
+	}
+
+	if e = m.api.putNexusFile(rrl.String(), fd); e != nil {
+		return
+	}
+
+	return
+}
+
+func (m *nexus) uploadAssetRPC(asset NexusAsset2) (e error) {
+	var fd *os.File
+	if fd, e = asset.isFileExists(m.tempPath); e != nil {
+		return
+	}
+	defer fd.Close()
+
+	var apiForm = make(map[string]io.Reader)
+	apiForm["asset0"] = fd
+	var classifier, extension, groupId, artifactId, version string
+	if classifier, e = asset.getClassifier(); e != nil {
+		return
+	}
+	if extension, e = asset.getExtension(); e != nil {
+		return
+	}
+	if groupId, e = asset.getGroupId(); e != nil {
+		return
+	}
+	if artifactId, e = asset.getArtifactId(); e != nil {
+		return
+	}
+	if version, e = asset.getVersion(); e != nil {
+		return
+	}
+
+	apiForm["asset0.classifier"] = strings.NewReader(classifier)
+	apiForm["asset0.extension"] = strings.NewReader(extension)
+	apiForm["groupId"] = strings.NewReader(groupId)
+	apiForm["artifactId"] = strings.NewReader(artifactId)
+	apiForm["version"] = strings.NewReader(version)
+	apiForm["generate-pom"] = strings.NewReader("on")
+
+	var buffer *bytes.Buffer
+	var contentType string
+	if buffer, contentType, e = m.getNexusFileMeta(apiForm); e != nil {
+		gLog.Error().Err(e).Str("filename", asset.getHumanReadbleName()).
+			Msg("Could not get meta data for the asset's file.")
+		return
+	}
+
+	var rrl *url.URL
+	if rrl, e = m.endpoint.Parse("/service/rest/v1/components"); e != nil {
+		return
+	}
+
+	var rgs = &url.Values{}
+	rgs.Set("repository", m.repository)
+	rrl.RawQuery = rgs.Encode()
+
+	if e = m.api.postNexusFile(rrl.String(), buffer, contentType); e != nil {
+		return
+	}
+
+	return
+}
+
 func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 	var isErrored bool
 	var assetsCount = len(assets)
@@ -240,6 +587,7 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 				Msg("Could not find the asset's file. Asset will be skipped!")
 			continue
 		}
+		defer file.Close()
 
 		gLog.Debug().Msg("asset - " + asset.getHumanReadbleName())
 
@@ -256,10 +604,12 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 
 		var fileApiMeta = make(map[string]io.Reader)
 		fileApiMeta["asset0"] = file
+		fileApiMeta["asset0.classifier"] = strings.NewReader(asset.Maven2.Classifier)
 		fileApiMeta["asset0.extension"] = strings.NewReader(asset.Maven2.Extension)
 		fileApiMeta["groupId"] = strings.NewReader(asset.Maven2.GroupID)
 		fileApiMeta["artifactId"] = strings.NewReader(asset.Maven2.ArtifactID)
 		fileApiMeta["version"] = strings.NewReader(asset.Maven2.Version)
+		fileApiMeta["generate-pom"] = strings.NewReader("on")
 
 		var body *bytes.Buffer
 		var contentType string
@@ -279,7 +629,7 @@ func (m *nexus) uploadMissingAssets(assets []*NexusAsset) (e error) {
 		rgs.Set("repository", m.repository)
 		rrl.RawQuery = rgs.Encode()
 
-		if e = m.api.putNexusFile(rrl.String(), body, contentType); e != nil {
+		if e = m.api.postNexusFile(rrl.String(), body, contentType); e != nil {
 			isErrored = true
 			continue
 		}
@@ -330,33 +680,3 @@ func (m *nexus) getNexusFileMeta(meta map[string]io.Reader) (buf *bytes.Buffer, 
 func (m *nexus) setTemporaryDirectory(tdir string) {
 	m.tempPath = tdir
 }
-
-/*	Google + stackoverflow shit :
-// Prepare a form that you will submit to that URL.
-var b bytes.Buffer
-w := multipart.NewWriter(&b)
-for key, r := range values {
-    var fw io.Writer
-    if x, ok := r.(io.Closer); ok {
-        defer x.Close()
-    }
-    // Add an image file
-    if x, ok := r.(*os.File); ok {
-        if fw, err = w.CreateFormFile(key, x.Name()); err != nil {
-            return
-        }
-    } else {
-        // Add other fields
-        if fw, err = w.CreateFormField(key); err != nil {
-            return
-        }
-    }
-    if _, err = io.Copy(fw, r); err != nil {
-        return err
-    }
-
-}
-// Don't forget to close the multipart writer.
-// If you don't close it, your request will be missing the terminating boundary.
-w.Close()
-*/
