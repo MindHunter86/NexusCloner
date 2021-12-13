@@ -375,8 +375,13 @@ func (m *nexus) getTemporaryDirectory() string {
 }
 
 func (m *nexus) downloadMissingAssetsRPC(assets []NexusAsset2, dstNexus *nexus) (e error) {
-	var dwnListLen = len(assets)
+	if gIsDebug {
+		for _, asset := range assets {
+			gLog.Debug().Msgf("Asset %s marked for downloading", asset.getHumanReadbleName())
+		}
+	}
 
+	var dwnListLen = len(assets)
 	gLog.Info().Msgf("There are %d marked for downloading.", dwnListLen)
 
 	if gCli.Bool("skip-download") {

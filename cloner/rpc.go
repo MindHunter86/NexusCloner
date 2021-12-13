@@ -321,7 +321,7 @@ func (m *rpcAsset) compressAssetBytes(slice []byte) ([]byte, error) {
 		return nil, e
 	}
 
-	gLog.Debug().Msgf("compressed size (bytes):", len(buffer.Bytes()))
+	gLog.Debug().Msgf("compressed size (bytes): %d", len(buffer.Bytes()))
 	return buffer.Bytes(), e
 }
 
@@ -339,7 +339,7 @@ func (m *rpcAsset) decompressAssetBytes(slice []byte) (NexusAsset2, error) {
 		return nil, e
 	}
 
-	gLog.Debug().Msgf("uncompressed size (bytes): ", len(encodedSlice))
+	gLog.Debug().Msgf("uncompressed size (bytes): %d", len(encodedSlice))
 	return m.decodeAssetFromBytes(encodedSlice)
 }
 

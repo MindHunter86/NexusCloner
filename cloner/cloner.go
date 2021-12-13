@@ -60,7 +60,7 @@ func (m *Cloner) Bootstrap(ctx *cli.Context) error {
 	}()
 
 	// FEATURE QUEUE
-	var kernSignal = make(chan os.Signal)
+	kernSignal := make(chan os.Signal, 1)
 	signal.Notify(kernSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGQUIT)
 
 	var wg sync.WaitGroup
