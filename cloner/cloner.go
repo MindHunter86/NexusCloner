@@ -258,6 +258,8 @@ func (m *Cloner) getMissingAssetsRPC(srcCollection, dstCollection []NexusAsset2)
 					missAssets = append(missAssets, asset)
 					continue
 				}
+				
+				continue
 			}
 
 			if dHashes, e = dstAssets[asset.getHumanReadbleName()].getHashes(); e != nil {
@@ -267,10 +269,13 @@ func (m *Cloner) getMissingAssetsRPC(srcCollection, dstCollection []NexusAsset2)
 					missAssets = append(missAssets, asset)
 					continue
 				}
+				
+				continue
 			}
 
 			if len(sHashes) == 0 || len(dHashes) == 0 {
 				gLog.Warn().Msg("There are no hashes for given asset! Are hashes are enabled on Nexus instances?")
+				gLog.Debug().Str("source hash", sHashes).Str("dst hash", dHashes).Msg("")
 
 				if gCli.Bool("verify-errors-ignore") {
 					missAssets = append(missAssets, asset)
